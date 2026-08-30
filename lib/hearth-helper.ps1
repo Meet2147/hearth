@@ -51,6 +51,9 @@ while ($true) {
   $global:LASTEXITCODE = $null
   $code = 0
   $script:sawError = $false
+  # $Error is appended to for every error, terminating or not, regardless of
+  # redirection - the one signal that does not depend on pipeline scoping.
+  $errorsBefore = $Error.Count
 
   try {
     # 2>&1 folds the error stream into output so ordering matches a real console.
@@ -72,9 +75,10 @@ while ($true) {
     }
 
     # A native executable sets $LASTEXITCODE and is authoritative. A cmdlet does
-    # not, so fall back to whether anything came through the error stream.
+    # not, so fall back to whether anything failed: either an ErrorRecord came
+    # through the pipeline, or $Error grew.
     if ($null -ne $global:LASTEXITCODE) { $code = $global:LASTEXITCODE }
-    elseif ($script:sawError) { $code = 1 }
+    elseif ($script:sawError -or ($Error.Count -gt $errorsBefore)) { $code = 1 }
   } catch {
     [Console]::Out.WriteLine($_.Exception.Message)
     $code = 1
