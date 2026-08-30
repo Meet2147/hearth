@@ -304,8 +304,9 @@ Windows run exercises real PowerShell rather than failing on `/tmp`.
 npm test
 ```
 
-201 checks across seven suites, all passing on macOS 27 / Node 20 (run repeatedly
-to confirm they are not flaky). The same suites run on Linux and Windows in CI:
+201 checks across seven suites on macOS, and **all green on Linux, macOS and
+Windows in CI** — 185 of them run on Windows against real PowerShell 7, which is
+what verifies `hearth-helper.ps1`:
 
 | suite | what it proves |
 |---|---|
@@ -317,7 +318,9 @@ to confirm they are not flaky). The same suites run on Linux and Windows in CI:
 | local ui security | loopback-only binding, token on page and socket, foreign `Origin` refused, CSP present, snapshot leaks no key material, command round-trip |
 | live cli | the real binaries as separate processes, driven exactly as a person would |
 
-Five bugs this suite caught and now guards against permanently:
+Nine bugs this suite caught and now guards against permanently. The last four
+came from the Windows CI job on its first runs — none of them were reachable
+from a Mac:
 
 - An **infinite greeting loop** — host and guest re-greeted each other forever.
   It was hidden behind a broken key-conflict check that happened to break the
@@ -336,15 +339,25 @@ Five bugs this suite caught and now guards against permanently:
 - **A leaked pipe server.** The Windows driver recreated its named-pipe server
   every time the helper restarted after a kill. The second listen fails, and the
   abandoned server keeps handles open forever.
+- **A failing command reported success.** On Windows, `$?` after a pipeline
+  reports whether `ForEach-Object` succeeded, not the command inside it — so a
+  cmdlet that failed showed `ok` to everyone watching.
+- **Errors vanished entirely.** `2>&1` on `Invoke-Expression` does not reliably
+  fold an inner command's error stream into the pipeline, so error text never
+  reached the transcript. Now `$Error` is swept afterwards for anything missed.
+- **Non-ASCII output was destroyed.** PowerShell writes to the console in the
+  legacy OEM code page by default, turning accents, emoji and CJK into `?`
+  before the daemon ever saw them.
+- **A stale channel after a kill.** The driver's socket reference outlived the
+  dead helper by a tick, so the next command was written into a dead pipe and
+  silently lost — about one run in three.
 
 ## Limitations
 
-- **Windows hosting has not been run on real Windows here.** The whole Node side
-  of the driver *is* covered by tests, against a stand-in for the interpreter.
-  The unverified piece is `lib/hearth-helper.ps1`. CI closes this gap: the
-  `windows-latest` test job runs the full suite against real PowerShell, so a
-  green run is the verification. Until it goes green, treat Windows hosting as
-  written-but-unproven.
+- **The Windows app is built by CI but has never been launched.** The suite
+  passes on `windows-latest`, so hosting itself is verified against real
+  PowerShell — but nobody has yet double-clicked the packaged `.exe`. That is
+  the one remaining unknown on Windows.
 - **Not load-tested with many participants.** The relay caps a room at 16 and the
   protocol is a full broadcast; it has been exercised with three.
 - **No file transfer, no scrollback replay.** A guest joining late sees the room
@@ -352,10 +365,7 @@ Five bugs this suite caught and now guards against permanently:
 - **Browser guests need Ed25519 in WebCrypto** (Chrome 137+, Safari 17+, Firefox
   130+). Verified working. On an older browser the join fails with a clear
   message rather than silently dropping to an unsigned, spoofable mode.
-- **The Windows app has never been built or run.** The Electron config targets
-  it and CI builds it on `windows-latest`, but no Windows machine was available
-  here, so the first green CI run is the first real evidence. The macOS app is
-  built and verified.
+
 - **Reconnect is not automatic.** If the relay connection drops, the session
   ends and you rejoin with the same code.
 - **Licence enforcement is client-side only.** It is a polite gate, not a lock,

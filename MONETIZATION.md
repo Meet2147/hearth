@@ -162,4 +162,5 @@ Nothing here needs code changes; it is all account configuration.
   properly, and it only exists once there is a hosted relay to enforce on.
 - Hosted relay infrastructure, named rooms, transcript export.
 - No Polar products exist yet — the two environment variables above are unset,
-  so every build today is Free.
+  so every build today is Free. Nothing is charged for, and nothing pretends to
+  be.
