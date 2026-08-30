@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Hearth — a shared terminal for friends</title>
+<meta name="description" content="Drop into the same shell together. Chat inline, run commands, see the same output — end-to-end encrypted, with permissions the host controls. macOS, Windows and Linux.">
+<meta property="og:title" content="Hearth — a shared terminal for friends">
+<meta property="og:description" content="Chat and run commands together on one machine. End-to-end encrypted, permissions you control.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23ff9d4d'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' fill='%23241209'>&gt;_</text></svg>">
+<style>
+  :root {
+    --bg:      #0b0908;
+    --panel:   #131010;
+    --panel-2: #191413;
+    --line:    #262019;
+    --text:    #ece5db;
+    --dim:     #948877;
+    --faint:   #5d5347;
+    --ember:   #ff9d4d;
+    --ok:      #7ee0a0;
+    --bad:     #f2756b;
+    --warn:    #f0b849;
+    --blue:    #79b8ff;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, sans-serif;
+    --max: 1100px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: #4a2d12; }
+
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 22px; }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(11,9,8,0.82); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .wrap { display: flex; align-items: center; gap: 14px; height: 56px; }
+  .mark { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.2px; }
+  .mark .glyph {
+    width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 78%, #ffd08a 0%, var(--ember) 45%, #d1500f 100%);
+    color: #241209; font: 700 11px/1 var(--mono);
+  }
+  nav .grow { flex: 1; }
+  nav a.link { color: var(--dim); font-size: 14px; }
+  nav a.link:hover { color: var(--text); }
+  .pill {
+    background: var(--ember); color: #241209; font-weight: 650; font-size: 14px;
+    padding: 7px 15px; border-radius: 8px;
+  }
+  .pill:hover { filter: brightness(1.07); }
+
+  /* ---------- hero ---------- */
+  header { padding: 84px 0 0; text-align: center; position: relative; }
+  header::before {
+    content: ''; position: absolute; top: -140px; left: 50%; transform: translateX(-50%);
+    width: 720px; height: 420px; pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(255,157,77,0.16), transparent 68%);
+    filter: blur(20px);
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px; font: 12px/1 var(--mono);
+    color: var(--dim); border: 1px solid var(--line); background: var(--panel);
+    padding: 7px 13px; border-radius: 999px; margin-bottom: 26px;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+  h1 {
+    font-size: clamp(38px, 6.4vw, 68px); line-height: 1.05; font-weight: 600;
+    letter-spacing: -2px; margin-bottom: 20px;
+  }
+  h1 em { font-style: normal; color: var(--ember); }
+  .lede {
+    font-size: clamp(16px, 2vw, 19px); color: var(--dim); max-width: 620px;
+    margin: 0 auto 32px; line-height: 1.6;
+  }
+  .cta { display: flex; gap: 11px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 600;
+    padding: 12px 20px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); transition: border-color .15s, transform .1s;
+  }
+  .btn:hover { border-color: #6b3d16; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--ember); color: #241209; border-color: var(--ember); }
+  .btn.primary:hover { filter: brightness(1.07); }
+  .btn .sub { font-weight: 400; font-size: 12px; color: currentColor; opacity: .65; }
+  .undercta { margin-top: 16px; font: 12.5px/1.6 var(--mono); color: var(--faint); }
+
+  /* ---------- terminal mockup ---------- */
+  .shot { margin: 56px auto 0; max-width: 900px; padding: 0 22px; }
+  .term {
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    background: #0e0c0b; text-align: left;
+    box-shadow: 0 40px 90px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(255,157,77,.05);
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 9px; padding: 9px 13px;
+    background: #16130f; border-bottom: 1px solid var(--line);
+    font: 11.5px/1 var(--mono); color: var(--dim);
+  }
+  .lights { display: flex; gap: 6px; }
+  .lights i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .term-body { padding: 14px 16px 16px; font: 12.5px/1.62 var(--mono); }
+  .term-body .t { color: var(--faint); }
+  .term-body .who { font-weight: 600; }
+  .term-body .sep { color: var(--faint); }
+  .term-body .sig { color: var(--ember); }
+  .term-body .by { color: var(--faint); }
+  .term-body .out { color: #c9beaf; }
+  .term-body .ok { color: var(--ok); }
+  .term-body .bad { color: var(--bad); }
+  .term-body .warnl { color: var(--warn); }
+  .term-body .meta { color: var(--faint); }
+  .term-body .path { color: var(--blue); }
+  .term-body .row { white-space: pre-wrap; word-break: break-word; }
+  .caret { display: inline-block; width: 7px; height: 15px; background: var(--ember);
+    vertical-align: -3px; animation: blink 1.15s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---------- sections ---------- */
+  section { padding: 96px 0; }
+  .center { text-align: center; }
+  h2 {
+    font-size: clamp(26px, 3.6vw, 38px); line-height: 1.18; font-weight: 600;
+    letter-spacing: -1px; max-width: 640px; margin: 0 auto;
+  }
+  .sub { color: var(--dim); max-width: 560px; margin: 14px auto 0; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 54px;
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .cell { padding: 34px 30px 30px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .cell:nth-child(2n) { border-right: 0; }
+  .cell:nth-last-child(-n+2) { border-bottom: 0; }
+  .cell h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 9px; }
+  .cell p { color: var(--dim); font-size: 14.5px; line-height: 1.62; }
+  .cell .vis {
+    margin-top: 22px; background: #0e0c0b; border: 1px solid var(--line);
+    border-radius: 9px; padding: 13px 14px; font: 11.5px/1.6 var(--mono); color: var(--dim);
+    min-height: 118px;
+  }
+  .vis .l { white-space: pre-wrap; }
+
+  .quad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 26px;
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .quad div { padding: 26px 20px; border-right: 1px solid var(--line); }
+  .quad div:last-child { border-right: 0; }
+  .quad h4 { font-size: 14.5px; font-weight: 600; margin-bottom: 6px; }
+  .quad p { font-size: 13px; color: var(--dim); line-height: 1.55; }
+
+  /* ---------- statement ---------- */
+  .statement { text-align: center; padding: 104px 0; }
+  .statement p {
+    font-size: clamp(22px, 3.2vw, 32px); line-height: 1.35; letter-spacing: -0.8px;
+    max-width: 720px; margin: 0 auto; font-weight: 500;
+  }
+  .statement p span { color: var(--faint); }
+
+  /* ---------- download ---------- */
+  #download { border-top: 1px solid var(--line); }
+  .dl { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 44px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+    padding: 28px 26px;
+  }
+  .card.you { border-color: #6b3d16; box-shadow: 0 0 0 1px rgba(255,157,77,.12); }
+  .card .os { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .card .os h3 { font-size: 19px; font-weight: 600; }
+  .card .yours { font: 11px/1 var(--mono); color: var(--ember); border: 1px solid #6b3d16;
+    padding: 4px 8px; border-radius: 999px; }
+  .card .req { color: var(--faint); font-size: 13px; margin-bottom: 20px; }
+  .card .links { display: flex; flex-direction: column; gap: 9px; }
+  .card .links a {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; font-size: 14.5px;
+    background: var(--bg);
+  }
+  .card .links a:hover { border-color: #6b3d16; }
+  .card .links a .kind { color: var(--faint); font: 11.5px/1 var(--mono); }
+  .card .links a.main { background: var(--ember); color: #241209; border-color: var(--ember); font-weight: 600; }
+  .card .links a.main .kind { color: #241209; opacity: .7; }
+  .source { margin-top: 24px; text-align: center; color: var(--faint); font-size: 13.5px; }
+  .source code { font-family: var(--mono); color: var(--dim); background: var(--panel-2);
+    border: 1px solid var(--line); padding: 3px 7px; border-radius: 5px; font-size: 12.5px; }
+
+  .honest {
+    margin-top: 34px; border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px 22px; background: var(--panel); color: var(--dim); font-size: 13.5px;
+    line-height: 1.65;
+  }
+  .honest b { color: var(--text); font-weight: 600; }
+
+  /* ---------- footer ---------- */
+  footer { border-top: 1px solid var(--line); padding: 30px 0 44px; }
+  footer .wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    color: var(--faint); font-size: 13px; }
+  footer .grow { flex: 1; }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 780px) {
+    .grid, .dl { grid-template-columns: 1fr; }
+    .cell { border-right: 0; }
+    .cell:nth-last-child(2) { border-bottom: 1px solid var(--line); }
+    .quad { grid-template-columns: 1fr 1fr; }
+    .quad div:nth-child(2n) { border-right: 0; }
+    .quad div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    section { padding: 70px 0; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="mark" href="#top"><span class="glyph">&gt;_</span> Hearth</a>
+    <span class="grow"></span>
+    <a class="link" href="#features">Features</a>
+    <a class="link" href="https://github.com/Meet2147/hearth">GitHub</a>
+    <a class="pill" href="#download">Download</a>
+  </div>
+</nav>
+
+<header id="top">
+  <div class="wrap">
+    <div class="badge"><span class="dot"></span> v1.0 · macOS, Windows &amp; Linux</div>
+    <h1>A shared terminal<br>for <em>friends</em>.</h1>
+    <p class="lede">
+      Drop into the same shell together. Chat inline, run commands, watch the same
+      output scroll past — end-to-end encrypted, through a relay that can read none of it.
+    </p>
+    <div class="cta" id="heroCta">
+      <a class="btn primary" href="#download">Download for macOS <span class="sub">Apple Silicon</span></a>
+      <a class="btn" href="https://github.com/Meet2147/hearth">View source</a>
+    </div>
+    <div class="undercta">free · no account · nothing leaves your machines but ciphertext</div>
+  </div>
+</header>
+
+<div class="shot">
+  <div class="term">
+    <div class="term-bar">
+      <span class="lights"><i style="background:#f2756b"></i><i style="background:#f0b849"></i><i style="background:#7ee0a0"></i></span>
+      <span style="margin-left:6px">meet@hearth</span>
+      <span style="flex:1"></span>
+      <span>FIRE-SIDE-2026-CHAT</span>
+    </div>
+    <div class="term-body">
+<div class="row"><span class="t">14:02 </span><span class="who" style="color:#79b8ff">arjun</span><span class="sep"> │ </span>my deploy keeps failing on your box, mind if I poke at it?</div>
+<div class="row"><span class="t">14:02 </span><span class="who" style="color:#ff9d4d">meet</span><span class="sep"> │ </span>go for it, giving you access</div>
+<div class="row"><span class="t">· </span><span class="warnl">arjun can now run commands on this machine</span></div>
+<div class="row">&nbsp;</div>
+<div class="row"><span class="sig">❯ </span>npm run build<span class="by">   — arjun</span></div>
+<div class="row out">> hearth@1.0.0 build
+&gt; node scripts/bundle.js
+
+  bundled 41 modules in 1.2s</div>
+<div class="row"><span class="ok">ok</span><span class="meta">  1.4s  /Users/meet/dev/api</span></div>
+<div class="row">&nbsp;</div>
+<div class="row"><span class="sig">❯ </span>cat ~/.ssh/id_ed25519<span class="by">   — arjun</span></div>
+<div class="row"><span class="bad">blocked</span><span class="meta">  the host declined this command (SSH private key)</span></div>
+<div class="row">&nbsp;</div>
+<div class="row"><span class="path">~/dev/api </span><span class="sig">❯ </span><span class="caret"></span></div>
+    </div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap center">
+    <h2>Everything a shared shell should be.<br>Nothing it shouldn't.</h2>
+    <p class="sub">Built around one idea: letting a friend into your machine is a real decision, so make it a deliberate one.</p>
+
+    <div class="grid" style="text-align:left">
+      <div class="cell">
+        <h3>One shell, everyone in it</h3>
+        <p>Working directory, environment and shell state persist between commands — and between people. Arjun runs <code>cd /tmp</code>, you run <code>pwd</code>, you get <code>/tmp</code>.</p>
+        <div class="vis">
+<div class="l"><span style="color:#ff9d4d">❯ </span>cd /tmp<span style="color:#5d5347">   — arjun</span></div>
+<div class="l"><span style="color:#7ee0a0">ok</span><span style="color:#5d5347">  4ms</span></div>
+<div class="l">&nbsp;</div>
+<div class="l"><span style="color:#ff9d4d">❯ </span>pwd<span style="color:#5d5347">   — meet</span></div>
+<div class="l" style="color:#c9beaf">/tmp</div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h3>Guests start as watchers</h3>
+        <p>They read everything and can chat. Running is granted per person and revoked instantly. A leaked join code costs you a spectator, not a shell.</p>
+        <div class="vis">
+<div class="l" style="color:#ff9d4d">who is here</div>
+<div class="l">  meet (you)          <span style="color:#ff9d4d">host</span></div>
+<div class="l">  arjun               <span style="color:#7ee0a0">can run</span></div>
+<div class="l">  priya               <span style="color:#948877">watching</span></div>
+<div class="l">  sam                 <span style="color:#948877">watching</span></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h3>It stops you before you leak</h3>
+        <p>Two different hazards, handled differently: commands that could wreck the machine, and commands that would print your secrets into a room. It tells you which, who asked, and how many people are watching.</p>
+        <div class="vis">
+<div class="l" style="color:#f0b849">THIS WOULD EXPOSE SECRETS</div>
+<div class="l">arjun wants to run:</div>
+<div class="l" style="color:#ece5db">  cat ~/.aws/credentials</div>
+<div class="l" style="color:#5d5347">flagged: AWS credentials</div>
+<div class="l" style="color:#5d5347">2 other people are watching</div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h3>The relay is blind</h3>
+        <p>It routes opaque blobs between rooms and holds no key — it cannot read a message, a command, or what came back. Run it on a small VPS, or keep everything on localhost.</p>
+        <div class="vis">
+<div class="l" style="color:#5d5347">relay log</div>
+<div class="l">join  a3f1c8d2  c1  (2 in room)</div>
+<div class="l">join  a3f1c8d2  c2  (3 in room)</div>
+<div class="l" style="color:#5d5347">— no message content, ever —</div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h3>Signed, not just encrypted</h3>
+        <p>Everyone in a room shares the encryption key, so encryption alone proves nothing about <em>who</em> sent something. Ed25519 signatures stop an insider forging command output or faking a permission grant from the host.</p>
+        <div class="vis">
+<div class="l">host key</div>
+<div class="l" style="color:#ece5db">C247-438C-7107-1534</div>
+<div class="l">&nbsp;</div>
+<div class="l" style="color:#f2756b">dropped a "grant" from priya —</div>
+<div class="l" style="color:#f2756b">only the host may send that</div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h3>Everything is written down</h3>
+        <p>Who ran what, when, the risk verdict, the exit code — including the commands you blocked. Kept locally, in plain JSON lines you can read with anything.</p>
+        <div class="vis">
+<div class="l" style="color:#5d5347">~/.hearth/audit-29a03a7c.jsonl</div>
+<div class="l">grant    arjun</div>
+<div class="l">command  arjun  "npm run build"  exit=0</div>
+<div class="l" style="color:#f0b849">blocked  arjun  risk=sensitive</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quad" style="text-align:left">
+      <div>
+        <h4>Zero dependencies</h4>
+        <p>The daemon and relay are plain Node. Nothing to audit but the code itself.</p>
+      </div>
+      <div>
+        <h4>Terminal-native</h4>
+        <p><code>/chat</code>, <code>/run</code>, history on ↑, Tab completion. Or use the CLI.</p>
+      </div>
+      <div>
+        <h4>Your relay, your rules</h4>
+        <p>One small file. Fly.io, a VPS, or loopback — it is ~180 lines you can read.</p>
+      </div>
+      <div>
+        <h4>201 tests, 3 platforms</h4>
+        <p>Linux, macOS and Windows on every commit, including real PowerShell.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="statement">
+  <div class="wrap">
+    <p>A shared terminal is remote code execution on your machine.<br>
+       <span>That is the whole point — so Hearth makes it deliberate rather than accidental.</span></p>
+  </div>
+</div>
+
+<section id="download">
+  <div class="wrap center">
+    <h2>Get Hearth</h2>
+    <p class="sub">Free while it is young. Download it, break it, tell me what is wrong with it.</p>
+
+    <div class="dl" style="text-align:left">
+      <div class="card" id="cardMac">
+        <div class="os"><h3>macOS</h3><span class="yours" id="yourMac" hidden>your system</span></div>
+        <div class="req">macOS 11 or newer · Apple Silicon &amp; Intel</div>
+        <div class="links">
+          <a class="main" href="https://github.com/Meet2147/hearth/releases/latest/download/Hearth-mac-arm64.dmg">
+            Download .dmg <span class="kind">Apple Silicon</span></a>
+          <a href="https://github.com/Meet2147/hearth/releases/latest/download/Hearth-mac-x64.dmg">
+            Download .dmg <span class="kind">Intel</span></a>
+        </div>
+      </div>
+
+      <div class="card" id="cardWin">
+        <div class="os"><h3>Windows</h3><span class="yours" id="yourWin" hidden>your system</span></div>
+        <div class="req">Windows 10 or newer · 64-bit</div>
+        <div class="links">
+          <a class="main" href="https://github.com/Meet2147/hearth/releases/latest/download/Hearth-windows-setup.exe">
+            Download installer <span class="kind">.exe</span></a>
+          <a href="https://github.com/Meet2147/hearth/releases/latest/download/Hearth-windows-portable.exe">
+            Portable build <span class="kind">no install</span></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="source">
+      Linux, or prefer the terminal? <code>git clone https://github.com/Meet2147/hearth</code> —
+      <a href="https://github.com/Meet2147/hearth#quick-start" style="color:var(--dim);text-decoration:underline">see the README</a>.
+    </div>
+
+    <div class="honest" style="text-align:left">
+      <b>Two things worth knowing before you install.</b>
+      The builds are not code-signed yet, so macOS will say the developer cannot be verified —
+      right-click the app and choose Open the first time, and Windows SmartScreen will want
+      "More info → Run anyway". Signing certificates are on the list.
+      And Hearth is new: the Windows app is built and tested on every commit, but it has had
+      far fewer real hours than the Mac one. If something breaks,
+      <a href="https://github.com/Meet2147/hearth/issues" style="color:var(--ember)">open an issue</a>.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Hearth</span>
+    <span class="grow"></span>
+    <a href="https://github.com/Meet2147/hearth">GitHub</a>
+    <a href="https://github.com/Meet2147/hearth/releases">Releases</a>
+    <a href="https://github.com/Meet2147/hearth/blob/main/README.md">Docs</a>
+    <a href="https://github.com/Meet2147/hearth/blob/main/LICENSE">Licence</a>
+  </div>
+</footer>
+
+<script>
+  // Put the visitor's own platform first — the commonest reason a download page
+  // fails someone is making them work out which file they need.
+  (function () {
+    var ua = navigator.userAgent;
+    var isWin = /Windows|Win64|WOW64/i.test(ua);
+    var isMac = /Macintosh|Mac OS X/i.test(ua);
+    if (isWin) {
+      document.getElementById('yourWin').hidden = false;
+      document.getElementById('cardWin').classList.add('you');
+      var dl = document.querySelector('#download .dl');
+      dl.insertBefore(document.getElementById('cardWin'), dl.firstChild);
+      var hero = document.querySelector('#heroCta .primary');
+      hero.innerHTML = 'Download for Windows <span class="sub">64-bit</span>';
+      hero.setAttribute('href',
+        'https://github.com/Meet2147/hearth/releases/latest/download/Hearth-windows-setup.exe');
+    } else if (isMac) {
+      document.getElementById('yourMac').hidden = false;
+      document.getElementById('cardMac').classList.add('you');
+      // Apple Silicon cannot be read from the UA; the download cards spell it out.
+      var heroM = document.querySelector('#heroCta .primary');
+      heroM.setAttribute('href',
+        'https://github.com/Meet2147/hearth/releases/latest/download/Hearth-mac-arm64.dmg');
+    }
+  })();
+</script>
+</body>
+</html>
