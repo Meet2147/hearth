@@ -68,12 +68,31 @@ jobs:
 
       - name: Build
         working-directory: desktop
-        # Unsigned builds. Signing needs certificates in secrets; without them
-        # electron-builder would otherwise try, and fail, to discover an identity.
+        # macOS: if the Developer ID secrets are present, sign + notarize so the
+        # download opens with a plain double-click. If they are not, fall back to
+        # a valid ad-hoc signature (via after-pack.js) so the build still works,
+        # just with the ordinary "unidentified developer" prompt.
+        # Windows/Linux: unsigned for now.
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ''
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            if [ -n "$CSC_LINK" ]; then
+              echo "Developer ID secrets present — signing and notarizing"
+              npx electron-builder --mac --config.mac.notarize=true --publish never
+            else
+              echo "No Developer ID secrets — ad-hoc build (unsigned)"
+              CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --publish never
+            fi
+          else
+            CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder ${{ matrix.target }} --publish never
+          fi
 
       - name: Collect artifacts
         uses: actions/upload-artifact@v4
