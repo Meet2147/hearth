@@ -1,5 +1,7 @@
 # Hearth
 
+**[Download for macOS or Windows →](https://meet2147.github.io/hearth/)**
+
 A shared terminal for friends. You open a session, they join with a code, and
 everyone sees the same shell. Chat inline, run commands together, and the whole
 thing is end-to-end encrypted through a relay that can read none of it.
