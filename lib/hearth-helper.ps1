@@ -50,11 +50,19 @@ while ($true) {
 
   $global:LASTEXITCODE = $null
   $code = 0
+  $script:sawError = $false
 
   try {
     # 2>&1 folds the error stream into output so ordering matches a real console.
+    # It also means failures arrive as ErrorRecord objects in the pipeline, which
+    # is how we detect them: $? after a pipeline reports whether ForEach-Object
+    # succeeded, NOT the command inside it, so a failing cmdlet would otherwise
+    # be reported as exit 0.
     Invoke-Expression $command 2>&1 | ForEach-Object {
       if ($_ -is [System.Management.Automation.ErrorRecord]) {
+        # $script: - an assignment inside the block would otherwise create a
+        # local that vanishes when the block ends.
+        $script:sawError = $true
         [Console]::Out.WriteLine($_.ToString())
       } else {
         $text = ($_ | Out-String).TrimEnd([char]13, [char]10)
@@ -62,9 +70,11 @@ while ($true) {
       }
       [Console]::Out.Flush()
     }
-    $succeeded = $?
+
+    # A native executable sets $LASTEXITCODE and is authoritative. A cmdlet does
+    # not, so fall back to whether anything came through the error stream.
     if ($null -ne $global:LASTEXITCODE) { $code = $global:LASTEXITCODE }
-    elseif (-not $succeeded) { $code = 1 }
+    elseif ($script:sawError) { $code = 1 }
   } catch {
     [Console]::Out.WriteLine($_.Exception.Message)
     $code = 1
