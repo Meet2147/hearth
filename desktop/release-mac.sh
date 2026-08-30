@@ -29,8 +29,11 @@ echo "==> signing as Developer ID for team $APPLE_TEAM_ID, notarizing as $APPLE_
 export CSC_IDENTITY_AUTO_DISCOVERY=true
 export HEARTH_DEVELOPER_ID=1
 
+# This electron-builder reads the notarization Team ID from APPLE_TEAM_ID (set
+# above); notarize just needs to be enabled. APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD
+# come from the environment too.
 npx electron-builder --mac \
-  --config.mac.notarize.teamId="$APPLE_TEAM_ID" \
+  --config.mac.notarize=true \
   --publish never
 
 echo ""
