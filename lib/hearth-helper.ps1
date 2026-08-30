@@ -16,6 +16,15 @@ param([Parameter(Mandatory = $true)][string]$PipeName)
 $ErrorActionPreference = 'Continue'
 $RS = [char]30
 
+# PowerShell writes to the console in the legacy OEM code page by default, which
+# turns anything outside it - accents, emoji, CJK - into '?' before it ever
+# reaches us. The daemon reads this stream as UTF-8, so say so on both sides.
+try {
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  [Console]::OutputEncoding = $utf8
+  $OutputEncoding = $utf8
+} catch { }
+
 # The driver passes a full \\.\pipe\NAME path; the client class wants bare NAME.
 $name = $PipeName -replace '^\\\\\.\\pipe\\', ''
 
