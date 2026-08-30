@@ -122,5 +122,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          draft: true          # a human decides when it actually ships
+          # Published (not draft) so the site's /releases/latest/download links
+          # resolve to it automatically. Tagging a version ships it.
+          draft: false
           generate_release_notes: true
