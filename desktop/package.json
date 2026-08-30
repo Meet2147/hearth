@@ -15,7 +15,8 @@
     "prestart": "node ../tools/icons.js build",
     "predist": "node ../tools/icons.js build",
     "predist:mac": "node ../tools/icons.js build",
-    "predist:win": "node ../tools/icons.js build"
+    "predist:win": "node ../tools/icons.js build",
+    "release:mac": "bash ./release-mac.sh"
   },
   "devDependencies": {
     "electron": "^33.4.11",
@@ -70,8 +71,11 @@
       ],
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.icns",
-      "identity": null,
-      "artifactName": "Hearth-mac-${arch}.${ext}"
+      "artifactName": "Hearth-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
       "target": [
@@ -108,7 +112,8 @@
     },
     "portable": {
       "artifactName": "Hearth-windows-portable.${ext}"
-    }
+    },
+    "afterPack": "./build/after-pack.js"
   },
   "engines": {
     "node": ">=18"
