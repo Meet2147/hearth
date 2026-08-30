@@ -51,21 +51,23 @@ while ($true) {
   $global:LASTEXITCODE = $null
   $code = 0
   $script:sawError = $false
+  $script:printed = New-Object 'System.Collections.Generic.HashSet[int]'
   # $Error is appended to for every error, terminating or not, regardless of
-  # redirection - the one signal that does not depend on pipeline scoping.
+  # redirection or pipeline scoping. It is the only signal here that does not
+  # depend on semantics that vary between PowerShell versions.
   $errorsBefore = $Error.Count
 
   try {
-    # 2>&1 folds the error stream into output so ordering matches a real console.
-    # It also means failures arrive as ErrorRecord objects in the pipeline, which
-    # is how we detect them: $? after a pipeline reports whether ForEach-Object
-    # succeeded, NOT the command inside it, so a failing cmdlet would otherwise
-    # be reported as exit 0.
-    Invoke-Expression $command 2>&1 | ForEach-Object {
+    # A scriptblock rather than Invoke-Expression: its streams behave
+    # predictably under redirection. 2>&1 folds errors into the output so the
+    # ordering matches what a real console would show.
+    $block = [ScriptBlock]::Create($command)
+    & $block 2>&1 | ForEach-Object {
       if ($_ -is [System.Management.Automation.ErrorRecord]) {
         # $script: - an assignment inside the block would otherwise create a
         # local that vanishes when the block ends.
         $script:sawError = $true
+        [void]$script:printed.Add($_.GetHashCode())
         [Console]::Out.WriteLine($_.ToString())
       } else {
         $text = ($_ | Out-String).TrimEnd([char]13, [char]10)
@@ -73,16 +75,28 @@ while ($true) {
       }
       [Console]::Out.Flush()
     }
-
-    # A native executable sets $LASTEXITCODE and is authoritative. A cmdlet does
-    # not, so fall back to whether anything failed: either an ErrorRecord came
-    # through the pipeline, or $Error grew.
-    if ($null -ne $global:LASTEXITCODE) { $code = $global:LASTEXITCODE }
-    elseif ($script:sawError -or ($Error.Count -gt $errorsBefore)) { $code = 1 }
   } catch {
     [Console]::Out.WriteLine($_.Exception.Message)
     $code = 1
   }
+
+  # Anything that never reached the pipeline still has to be shown - a silent
+  # failure in a terminal several people are watching is the worst outcome.
+  $newErrors = $Error.Count - $errorsBefore
+  if ($newErrors -gt 0) {
+    for ($i = $newErrors - 1; $i -ge 0; $i--) {
+      $record = $Error[$i]
+      if (-not $script:printed.Contains($record.GetHashCode())) {
+        [Console]::Out.WriteLine($record.ToString())
+      }
+    }
+    [Console]::Out.Flush()
+  }
+
+  # A native executable sets $LASTEXITCODE and is authoritative. A cmdlet does
+  # not, so fall back to whether anything failed at all.
+  if ($null -ne $global:LASTEXITCODE) { $code = $global:LASTEXITCODE }
+  elseif ($script:sawError -or $newErrors -gt 0) { $code = 1 }
 
   # PowerShell's location and the process working directory are separate things;
   # native executables use the latter, so keep them in step after every command.
