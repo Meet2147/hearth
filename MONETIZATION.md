@@ -85,6 +85,7 @@ can do by itself is free, and what you actually run is paid.
 | Session transcript export (Markdown / JSON) | — | ✅ |
 | Audit log export | — | ✅ |
 | Custom command policy (your own patterns) | — | ✅ |
+| Screen-share privacy (hide window from capture) | — | ✅ |
 | Support | issues | direct |
 
 Free is deliberately generous. Someone who will self-host was never going to

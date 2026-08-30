@@ -205,6 +205,42 @@
   }
   .honest b { color: var(--text); font-weight: 600; }
 
+  /* ---------- pricing ---------- */
+  #pricing { border-top: 1px solid var(--line); }
+  .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 48px; text-align: left; }
+  .plan {
+    border: 1px solid var(--line); border-radius: 16px; background: var(--panel);
+    padding: 30px 28px; display: flex; flex-direction: column;
+  }
+  .plan.pro { border-color: #6b3d16; box-shadow: 0 0 0 1px rgba(255,157,77,.12); }
+  .plan .name { font-size: 13px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--dim); display: flex; align-items: center; gap: 9px; }
+  .plan.pro .name { color: var(--ember); }
+  .plan .name .flag { font: 10px/1 var(--mono); border: 1px solid #6b3d16; color: var(--ember);
+    padding: 3px 7px; border-radius: 999px; letter-spacing: 0; }
+  .plan .price { font-size: 40px; font-weight: 600; letter-spacing: -1.5px; margin: 16px 0 2px; }
+  .plan .price small { font-size: 15px; font-weight: 400; color: var(--dim); letter-spacing: 0; }
+  .plan .terms { color: var(--dim); font-size: 13.5px; min-height: 20px; }
+  .plan .terms b { color: var(--text); font-weight: 600; }
+  .plan ul { list-style: none; margin: 22px 0 26px; display: flex; flex-direction: column; gap: 11px; }
+  .plan li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.5; color: var(--text); }
+  .plan li::before { content: '✓'; color: var(--ok); font-weight: 700; flex: none; }
+  .plan li.off { color: var(--faint); }
+  .plan li.off::before { content: '—'; color: var(--faint); }
+  .plan .go { margin-top: auto; }
+  .plan .go .btn { width: 100%; justify-content: center; }
+  .terms-row { display: flex; gap: 8px; margin: 14px 0 2px; flex-wrap: wrap; }
+  .terms-row a {
+    flex: 1; min-width: 96px; text-align: center; border: 1px solid var(--line); border-radius: 9px;
+    padding: 10px 8px; font-size: 13px; background: var(--bg); color: var(--text);
+  }
+  .terms-row a:hover { border-color: #6b3d16; }
+  .terms-row a.pick { border-color: var(--ember); }
+  .terms-row a b { display: block; font-size: 16px; font-weight: 600; }
+  .terms-row a span { color: var(--dim); font-size: 11.5px; }
+  .price-note { text-align: center; color: var(--faint); font-size: 13px; margin-top: 26px; }
+  .price-note b { color: var(--dim); font-weight: 500; }
+
   /* ---------- footer ---------- */
   footer { border-top: 1px solid var(--line); padding: 30px 0 44px; }
   footer .wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
@@ -230,7 +266,7 @@
     <a class="mark" href="#top"><span class="glyph">&gt;_</span> Hearth</a>
     <span class="grow"></span>
     <a class="link" href="#features">Features</a>
-    <a class="link" href="#download">Download</a>
+    <a class="link" href="#pricing">Pricing</a>
     <a class="pill" href="#download">Get Hearth</a>
   </div>
 </nav>
@@ -384,6 +420,60 @@
   </div>
 </div>
 
+<section id="pricing">
+  <div class="wrap center">
+    <h2>Simple pricing</h2>
+    <p class="sub">Free for as long as you host your own relay. Pro is for when you'd rather not.</p>
+
+    <div class="plans">
+      <div class="plan">
+        <div class="name">Free</div>
+        <div class="price">$0</div>
+        <div class="terms">Yours forever.</div>
+        <ul>
+          <li>Chat &amp; run commands together</li>
+          <li>Per-person run permissions, lock, kick</li>
+          <li>Destructive &amp; secret-exposure warnings</li>
+          <li>Local audit log</li>
+          <li>macOS, Windows &amp; Linux apps</li>
+          <li>Unlimited guests <b>on your own relay</b></li>
+          <li class="off">Hosted relay — bring your own</li>
+          <li class="off">Screen-share privacy</li>
+          <li class="off">Named rooms &amp; transcript export</li>
+        </ul>
+        <div class="go"><a class="btn" href="#download">Download free</a></div>
+      </div>
+
+      <div class="plan pro">
+        <div class="name">Pro <span class="flag">everything in Free, plus</span></div>
+        <div class="price" id="proPrice">$5 <small>/ month</small></div>
+        <div class="terms" id="proTerms">Billed monthly. Cancel anytime.</div>
+        <div class="terms-row" id="terms">
+          <a href="#" data-term="monthly" class="pick"><b>$5</b><span>per month</span></a>
+          <a href="#" data-term="yearly"><b>$29</b><span>per year</span></a>
+          <a href="#" data-term="lifetime"><b>$49</b><span>once, forever</span></a>
+        </div>
+        <ul>
+          <li><b>Hosted relay</b> — no server to run, works from anywhere</li>
+          <li><b>Screen-share privacy</b> — keep Hearth out of what you present</li>
+          <li>Stable named rooms — same code every time</li>
+          <li>Transcript &amp; audit export (Markdown / JSON)</li>
+          <li>Custom command-risk rules</li>
+          <li>Direct support</li>
+        </ul>
+        <div class="go"><a class="btn primary" id="buyBtn" href="#" data-checkout="monthly">Get Pro — $5/mo</a></div>
+      </div>
+    </div>
+
+    <div class="price-note">
+      <b>Screen-share privacy</b> keeps the Hearth window out of screen captures and recordings —
+      Meet, Zoom, QuickTime, OBS — using the operating system's own content-protection.
+      It does not hide the window from a camera pointed at your screen, and is not a way around
+      exam or interview monitoring.
+    </div>
+  </div>
+</section>
+
 <section id="download">
   <div class="wrap center">
     <h2>Get Hearth</h2>
@@ -458,6 +548,45 @@
       heroM.setAttribute('href',
         'https://github.com/Meet2147/hearth/releases/latest/download/Hearth-mac-arm64.dmg');
     }
+  })();
+
+  // Pricing term switch. CHECKOUT holds the Polar checkout links — fill these in
+  // once the three products exist (see MONETIZATION.md). Until then the buttons
+  // scroll to the free download rather than dead-ending.
+  (function () {
+    var CHECKOUT = {
+      monthly:  '',   // e.g. https://buy.polar.sh/xxxxxxxx  ($5 / month)
+      yearly:   '',   // e.g. https://buy.polar.sh/xxxxxxxx  ($29 / year)
+      lifetime: '',   // e.g. https://buy.polar.sh/xxxxxxxx  ($49 once)
+    };
+    var TERMS = {
+      monthly:  { price: '$5 <small>/ month</small>',  note: 'Billed monthly. Cancel anytime.',  cta: 'Get Pro — $5/mo' },
+      yearly:   { price: '$29 <small>/ year</small>',  note: 'Billed yearly — two months off.',   cta: 'Get Pro — $29/yr' },
+      lifetime: { price: '$49 <small>once</small>',    note: 'Pay once. Yours for good.',         cta: 'Get Pro — $49' },
+    };
+    var price = document.getElementById('proPrice');
+    var terms = document.getElementById('proTerms');
+    var buy = document.getElementById('buyBtn');
+    var tabs = [].slice.call(document.querySelectorAll('#terms a'));
+
+    function select(term) {
+      var t = TERMS[term];
+      price.innerHTML = t.price;
+      terms.textContent = t.note;
+      buy.innerHTML = t.cta;
+      buy.setAttribute('data-checkout', term);
+      tabs.forEach(function (a) { a.classList.toggle('pick', a.getAttribute('data-term') === term); });
+    }
+
+    tabs.forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); select(a.getAttribute('data-term')); });
+    });
+
+    buy.addEventListener('click', function (e) {
+      var url = CHECKOUT[buy.getAttribute('data-checkout')];
+      if (url) { location.href = url; }
+      else { e.preventDefault(); document.getElementById('download').scrollIntoView({ behavior: 'smooth' }); }
+    });
   })();
 </script>
 </body>

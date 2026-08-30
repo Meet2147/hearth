@@ -21,6 +21,42 @@ const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 
 const IS_DEV = !app.isPackaged;
 
+// --- private mode ----------------------------------------------------------
+//
+// "Private mode" excludes the Hearth window from screen capture, using the OS's
+// own content-protection APIs (WDA_EXCLUDEFROMCAPTURE on Windows,
+// NSWindowSharingNone on macOS) via Electron's setContentProtection. The window
+// stays fully visible on your physical display; it is only omitted from what a
+// screen-share or screen-recording tool sees - Meet, Zoom, QuickTime, OBS.
+//
+// Honest about its limits: this defeats SOFTWARE capture only. It does nothing
+// against a camera pointed at the screen, a hardware capture card, or software
+// that inspects running processes rather than pixels. It is a privacy feature,
+// not an invisibility guarantee.
+const PREFS_PATH = path.join(app.getPath('userData'), 'prefs.json');
+
+function loadPrefs() {
+  try { return JSON.parse(fs.readFileSync(PREFS_PATH, 'utf8')); } catch (e) { return {}; }
+}
+function savePrefs(prefs) {
+  try { fs.writeFileSync(PREFS_PATH, JSON.stringify(prefs, null, 2)); } catch (e) { /* best effort */ }
+}
+let privateMode = loadPrefs().privateMode === true;
+
+function applyPrivateMode() {
+  if (win && !win.isDestroyed()) {
+    try { win.setContentProtection(privateMode); } catch (e) { /* unsupported OS */ }
+  }
+}
+function setPrivateMode(on) {
+  privateMode = !!on;
+  const prefs = loadPrefs();
+  prefs.privateMode = privateMode;
+  savePrefs(prefs);
+  applyPrivateMode();
+  buildMenu(); // refresh the checkmark
+}
+
 // Packaged, the daemon lives in Resources/app; in development it is the repo.
 const APP_ROOT = IS_DEV
   ? path.join(__dirname, '..')
@@ -165,6 +201,7 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
+  applyPrivateMode(); // honour the saved choice from the moment the window exists
   showStatus('Starting your session…', false);
 
   // The window is for the session and nothing else: keep it there, and send
@@ -219,6 +256,14 @@ function buildMenu() {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Private (hide from screen share)',
+          type: 'checkbox',
+          checked: privateMode,
+          accelerator: 'CommandOrControl+Shift+P',
+          click: (item) => setPrivateMode(item.checked),
+        },
+        { type: 'separator' },
         { role: 'reload' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' },
         { type: 'separator' }, { role: 'togglefullscreen' },
       ],

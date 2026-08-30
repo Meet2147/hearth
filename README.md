@@ -69,6 +69,15 @@ It is a native window hosting the same interface the browser shows, rather than
 a per-platform UI rewrite — which is deliberate: the Mac app, the Windows app and
 a friend's browser can never drift apart, and one fix lands everywhere.
 
+**Private mode** (View → *Private (hide from screen share)*, or ⌘/Ctrl+Shift+P)
+excludes the Hearth window from screen capture using the OS's own
+content-protection APIs — `WDA_EXCLUDEFROMCAPTURE` on Windows,
+`NSWindowSharingNone` on macOS, via Electron's `setContentProtection`. The window
+stays visible on your own display but is omitted from what Meet, Zoom, QuickTime
+or OBS record. It defeats *software* capture only: a camera pointed at the
+screen still sees everything, and it is not a way around exam or interview
+monitoring.
+
 **Settings** (`/settings`, or the button in the title bar) shows the version,
 checks GitHub for a newer release, and holds your licence key. The daemon does
 the update check and the licence calls, so the window keeps a strict CSP and
