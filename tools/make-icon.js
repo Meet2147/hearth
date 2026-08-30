@@ -95,16 +95,21 @@ function capsule(px, py, x1, y1, x2, y2, radius) {
 }
 
 // A prompt chevron and cursor: this is a terminal, and the icon should say so
-// before you have read the name.
-function glyphDistance(sx, sy, cx, cy, box) {
-  const u = (v) => v * box;           // box-relative units
+// before you have read the name. The chevron is cream; the cursor is blue — a
+// small cool accent against the ember, echoed in the app and on the site.
+function chevronDistance(sx, sy, cx, cy, box) {
+  const u = (v) => v * box;
   const stroke = u(0.062);
   const X = (v) => cx + u(v), Y = (v) => cy + u(v);
-
   const upper = capsule(sx, sy, X(-0.26), Y(-0.20), X(-0.02), Y(0.015), stroke);
   const lower = capsule(sx, sy, X(-0.02), Y(0.015), X(-0.26), Y(0.23), stroke);
-  const cursor = capsule(sx, sy, X(0.07), Y(0.235), X(0.30), Y(0.235), stroke);
-  return Math.min(upper, lower, cursor);
+  return Math.min(upper, lower);
+}
+function cursorDistance(sx, sy, cx, cy, box) {
+  const u = (v) => v * box;
+  const stroke = u(0.062);
+  const X = (v) => cx + u(v), Y = (v) => cy + u(v);
+  return capsule(sx, sy, X(0.07), Y(0.235), X(0.30), Y(0.235), stroke);
 }
 
 function draw(size) {
@@ -137,12 +142,18 @@ function draw(size) {
       let [r, g, b] = sample(gd);
 
       // Lay the prompt over the ember, antialiased the same way as the edge.
-      const gdist = glyphDistance(sx, sy, cx, cy, box);
-      const ink = Math.max(0, Math.min(1, 0.5 - gdist / aa));
-      if (ink > 0) {
-        r = Math.round(r + (255 - r) * ink);
-        g = Math.round(g + (247 - g) * ink);
-        b = Math.round(b + (235 - b) * ink);
+      // Chevron in cream, cursor in a cool blue.
+      const chev = Math.max(0, Math.min(1, 0.5 - chevronDistance(sx, sy, cx, cy, box) / aa));
+      if (chev > 0) {
+        r = Math.round(r + (255 - r) * chev);
+        g = Math.round(g + (247 - g) * chev);
+        b = Math.round(b + (235 - b) * chev);
+      }
+      const cur = Math.max(0, Math.min(1, 0.5 - cursorDistance(sx, sy, cx, cy, box) / aa));
+      if (cur > 0) {
+        r = Math.round(r + (120 - r) * cur);   // #6fc6ff — a bit of blue
+        g = Math.round(g + (198 - g) * cur);
+        b = Math.round(b + (255 - b) * cur);
       }
 
       const i = (y * size + x) * 4;

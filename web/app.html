@@ -42,6 +42,13 @@
   #bar .grow { flex: 1; }
   #bar button { -webkit-app-region: no-drag; color: var(--dim); padding: 2px 7px; border-radius: 4px; }
   #bar button:hover { color: var(--text); background: #241d17; }
+  /* the app mark: ember tile with a blue cursor, matching the icon */
+  .mark { width: 15px; height: 15px; border-radius: 4px; flex: none; position: relative;
+    background: radial-gradient(circle at 50% 78%, #ffd08a 0%, var(--ember) 46%, #d1500f 100%); }
+  .mark::before { content: '›'; position: absolute; left: 2px; top: -1px; color: #fff2e3;
+    font-size: 11px; font-weight: 700; line-height: 15px; }
+  .mark::after { content: ''; position: absolute; right: 2px; bottom: 3px; width: 5px; height: 2px;
+    border-radius: 1px; background: var(--blue); }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
   .dot.live { background: var(--ok); box-shadow: 0 0 7px var(--ok); }
   .dot.dead { background: var(--bad); }
@@ -84,7 +91,7 @@
   #ps1 .path { color: var(--blue); }
   #entry {
     flex: 1; outline: none; resize: none; overflow: hidden;
-    background: transparent; color: var(--text); caret-color: var(--ember);
+    background: transparent; color: var(--text); caret-color: var(--blue);
     font: inherit; line-height: 1.55; min-height: 1.55em;
   }
   #entry::placeholder { color: var(--faint); }
@@ -172,6 +179,7 @@
 
 <div id="app" class="hidden">
   <div id="bar">
+    <div class="mark"></div>
     <div class="dot" id="hDot"></div>
     <span id="hTitle">hearth</span>
     <span class="grow"></span>
@@ -241,7 +249,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.0.0';
+  var APP_VERSION = '1.1.0';
 
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
@@ -377,6 +385,7 @@
     ['/kill', 'stop whatever is running'],
     ['/who', 'list everyone and what they can do'],
     ['/settings', 'version, updates, license'],
+    ['/save', 'download the transcript as Markdown'],
     ['/clear', 'clear the transcript'],
     ['/help', 'this list'],
   ];
@@ -428,6 +437,7 @@
       case 'kill': return transport.send({ t: 'kill' });
       case 'who': return printRoster();
       case 'help': case '?': return printHelp();
+      case 'save': case 'export': return saveTranscript();
       case 'clear': return clearLog();
       case 'settings': case 'prefs': return openSettings();
       case 'code':
@@ -464,6 +474,43 @@
     var log = $('log'), row = $('promptRow');
     while (log.firstChild && log.firstChild !== row) log.removeChild(log.firstChild);
     cards = {};
+  }
+
+  // Serialise the transcript to Markdown and download it. Chat, commands (with
+  // who ran them), output and results all carry across, in order.
+  function saveTranscript() {
+    var lines = ['# Hearth session', '',
+                 (state.me ? 'Host: ' + state.me : '') + '  ' +
+                 new Date().toISOString(), ''];
+    var nodes = $('log').querySelectorAll('.ln');
+    nodes.forEach(function (n) {
+      if (n.classList.contains('chat')) {
+        var who = n.querySelector('.who');
+        var msg = n.lastChild && n.lastChild.textContent;
+        lines.push('**' + (who ? who.textContent : '?') + ':** ' + (msg || '').trim());
+      } else if (n.classList.contains('cmd')) {
+        lines.push('', '```console', '$ ' + n.textContent.replace(/^❯ /, '').trim(), '```');
+      } else if (n.classList.contains('out')) {
+        if (n.textContent) lines.push('```', n.textContent.replace(/\s+$/, ''), '```');
+      } else if (n.classList.contains('res')) {
+        lines.push('> ' + n.textContent.trim(), '');
+      } else if (n.classList.contains('sys')) {
+        lines.push('_' + n.textContent.replace(/^·\s*/, '').trim() + '_');
+      }
+    });
+    var body = lines.join('\n') + '\n';
+    var name = 'hearth-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.md';
+    try {
+      var blob = new Blob([body], { type: 'text/markdown' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      addSys('saved ' + name + '  (' + nodes.length + ' lines)');
+    } catch (e) {
+      addSys('could not save the transcript: ' + e.message, 'err');
+    }
   }
 
   // ======================= the prompt =======================
