@@ -1,0 +1,7 @@
+# Caddy fetches and renews a real certificate automatically, which is all the
+# relay needs to be reachable over wss://.
+#
+#   relay.example.com  ->  wss://relay.example.com/ws
+relay.example.com {
+	reverse_proxy 127.0.0.1:8787
+}

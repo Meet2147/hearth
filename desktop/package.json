@@ -1,0 +1,109 @@
+{
+  "name": "hearth-desktop",
+  "version": "1.0.0",
+  "description": "Hearth - a shared terminal for friends",
+  "author": "Hearth",
+  "license": "SEE LICENSE IN LICENSE",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node ../tools/icons.js build",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "prestart": "node ../tools/icons.js build",
+    "predist": "node ../tools/icons.js build",
+    "predist:mac": "node ../tools/icons.js build",
+    "predist:win": "node ../tools/icons.js build"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "dev.hearth.app",
+    "productName": "Hearth",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "loading.html",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../hearth.js",
+        "to": "app/hearth.js"
+      },
+      {
+        "from": "../relay.js",
+        "to": "app/relay.js"
+      },
+      {
+        "from": "../lib",
+        "to": "app/lib"
+      },
+      {
+        "from": "../web",
+        "to": "app/web"
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development",
+      "icon": "build/icon.png"
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

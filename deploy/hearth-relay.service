@@ -1,0 +1,24 @@
+# /etc/systemd/system/hearth-relay.service
+#   sudo systemctl enable --now hearth-relay
+[Unit]
+Description=Hearth relay
+After=network.target
+
+[Service]
+Type=simple
+User=hearth
+WorkingDirectory=/opt/hearth
+ExecStart=/usr/bin/node /opt/hearth/relay.js
+Environment=PORT=8787
+Restart=always
+RestartSec=3
+
+# The relay needs no filesystem access beyond its own code.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/hearth
+
+[Install]
+WantedBy=multi-user.target

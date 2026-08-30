@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Hearth</title>
+<style>
+  :root {
+    --bg:        #0e0c0b;
+    --bg-soft:   #16130f;
+    --line:      #2a231d;
+    --text:      #e6ded2;
+    --dim:       #8a7f71;
+    --faint:     #574f45;
+    --ember:     #ff9d4d;
+    --ok:        #7ee0a0;
+    --bad:       #f2756b;
+    --warn:      #f0b849;
+    --blue:      #79b8ff;
+    --violet:    #d3a5ff;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 13px/1.55 var(--mono);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; background: none; border: 0; }
+  button { cursor: pointer; }
+  ::selection { background: #4a2d12; }
+
+  /* ---------- chrome ---------- */
+  #bar {
+    height: 30px; display: flex; align-items: center; gap: 10px;
+    padding: 0 12px 0 78px;            /* room for the traffic lights */
+    border-bottom: 1px solid var(--line); background: var(--bg-soft);
+    -webkit-app-region: drag; user-select: none; font-size: 11.5px; color: var(--dim);
+  }
+  #bar .grow { flex: 1; }
+  #bar button { -webkit-app-region: no-drag; color: var(--dim); padding: 2px 7px; border-radius: 4px; }
+  #bar button:hover { color: var(--text); background: #241d17; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.live { background: var(--ok); box-shadow: 0 0 7px var(--ok); }
+  .dot.dead { background: var(--bad); }
+
+  /* ---------- transcript ---------- */
+  #log {
+    position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+    overflow-y: auto; padding: 10px 14px 4px;
+  }
+  #log::-webkit-scrollbar { width: 8px; }
+  #log::-webkit-scrollbar-thumb { background: #2c251e; border-radius: 4px; }
+  #log::-webkit-scrollbar-track { background: transparent; }
+
+  .ln { white-space: pre-wrap; word-break: break-word; }
+  .ln .t { color: var(--faint); }
+  .ln.out { color: #cabfb0; }
+  .ln.sys { color: var(--dim); }
+  .ln.sys.warn { color: var(--warn); }
+  .ln.sys.err { color: var(--bad); }
+  .ln.cmd { margin-top: 8px; color: var(--text); }
+  .ln.cmd .sig { color: var(--ember); }
+  .ln.cmd .by { color: var(--faint); }
+  .ln.res { margin-bottom: 6px; }
+  .ln.res .ok { color: var(--ok); }
+  .ln.res .bad { color: var(--bad); }
+  .ln.res .warn { color: var(--warn); }
+  .ln.res .meta { color: var(--faint); }
+  .ln.chat .who { font-weight: 600; }
+  .ln.chat .arrow { color: var(--faint); }
+  .ln.head { color: var(--ember); margin-top: 10px; }
+  .ln.kv { color: var(--dim); }
+  .ln.kv b { color: var(--text); font-weight: 500; }
+
+  /* ---------- prompt ---------- */
+  #promptRow {
+    position: sticky; bottom: 0; display: flex; align-items: flex-start; gap: 0;
+    background: var(--bg); padding: 4px 0 10px;
+  }
+  #ps1 { color: var(--ember); white-space: pre; flex: none; }
+  #ps1 .path { color: var(--blue); }
+  #entry {
+    flex: 1; outline: none; resize: none; overflow: hidden;
+    background: transparent; color: var(--text); caret-color: var(--ember);
+    font: inherit; line-height: 1.55; min-height: 1.55em;
+  }
+  #entry::placeholder { color: var(--faint); }
+  #ghost { color: var(--faint); pointer-events: none; white-space: pre; }
+
+  /* ---------- overlays ---------- */
+  .veil {
+    position: fixed; inset: 0; background: rgba(6,5,4,0.86);
+    display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50;
+  }
+  .veil.on { display: flex; }
+  .panel {
+    width: 100%; max-width: 560px; max-height: 82vh; overflow-y: auto;
+    background: var(--bg-soft); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .panel h2 {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--ember); padding: 14px 18px; border-bottom: 1px solid var(--line);
+  }
+  .panel .body { padding: 16px 18px; }
+  .row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; }
+  .row .k { color: var(--dim); width: 128px; flex: none; }
+  .row .v { color: var(--text); word-break: break-all; flex: 1; }
+  .sep { height: 1px; background: var(--line); margin: 14px 0; }
+  .field {
+    width: 100%; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 5px; padding: 8px 10px; outline: none; color: var(--text);
+  }
+  .field:focus { border-color: #6b3d16; }
+  .btn {
+    padding: 7px 13px; border: 1px solid var(--line); border-radius: 5px;
+    color: var(--text); background: var(--bg);
+  }
+  .btn:hover { border-color: #6b3d16; }
+  .btn.primary { background: var(--ember); color: #24120a; border-color: var(--ember); font-weight: 600; }
+  .btn.danger { color: var(--bad); }
+  .btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .note { color: var(--dim); font-size: 12px; margin-top: 8px; line-height: 1.6; }
+  .note.err { color: var(--bad); }
+  .note.ok { color: var(--ok); }
+  .tag { font-size: 10.5px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--dim); }
+  .tag.pro { color: var(--ember); border-color: #6b3d16; }
+
+  /* ---------- confirm ---------- */
+  .ask-top { padding: 13px 18px; font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+  .ask-top.destructive { background: #37110f; color: #ffb0a8; }
+  .ask-top.sensitive { background: #362808; color: #ffd489; }
+  .cmdline {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 5px;
+    padding: 10px 12px; margin: 12px 0; white-space: pre-wrap; word-break: break-all;
+  }
+
+  /* ---------- join ---------- */
+  #join { height: 100%; display: grid; place-items: center; padding: 24px; }
+  #join .panel { max-width: 380px; }
+  .flame {
+    width: 34px; height: 34px; border-radius: 10px; margin-bottom: 14px;
+    background: radial-gradient(circle at 50% 78%, #ffd08a 0%, var(--ember) 42%, #d1500f 100%);
+    box-shadow: 0 0 24px -6px var(--ember);
+  }
+  label { display: block; font-size: 11px; letter-spacing: 0.6px; color: var(--faint);
+    text-transform: uppercase; margin: 14px 0 6px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="join">
+  <div class="panel">
+    <div class="body">
+      <div class="flame"></div>
+      <div style="color:var(--text);font-size:15px">Hearth</div>
+      <div class="note">Join a friend's terminal.</div>
+      <label for="fCode">Join code</label>
+      <input class="field" type="text" id="fCode" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
+      <label for="fName">Your name</label>
+      <input class="field" type="text" id="fName" placeholder="what should we call you" autocomplete="off">
+      <label for="fRelay">Relay</label>
+      <input class="field" type="text" id="fRelay" placeholder="wss://relay.example.com/ws" autocomplete="off" spellcheck="false">
+      <div class="btns"><button class="btn primary" id="fGo" style="flex:1">Join session</button></div>
+      <div class="note err" id="fErr"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div id="bar">
+    <div class="dot" id="hDot"></div>
+    <span id="hTitle">hearth</span>
+    <span class="grow"></span>
+    <span id="hCode" style="color:var(--faint)"></span>
+    <button id="btnSettings">settings</button>
+  </div>
+
+  <div id="log">
+    <div id="promptRow">
+      <span id="ps1">❯ </span>
+      <textarea id="entry" rows="1" spellcheck="false" autocomplete="off"
+                autocapitalize="off" autocorrect="off"></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="veilAsk">
+  <div class="panel">
+    <div class="ask-top" id="askTop"></div>
+    <div class="body">
+      <div id="askWho" style="color:var(--dim)"></div>
+      <div class="cmdline" id="askCmd"></div>
+      <div class="note" id="askWhy"></div>
+      <div class="btns">
+        <button class="btn" id="askNo" style="flex:1">Refuse</button>
+        <button class="btn danger" id="askYes" style="flex:1">Run it anyway</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="veilSettings">
+  <div class="panel">
+    <h2>Settings</h2>
+    <div class="body">
+      <div class="row"><span class="k">version</span><span class="v" id="sVersion">—</span></div>
+      <div class="row"><span class="k">updates</span><span class="v" id="sUpdate">—</span></div>
+      <div class="btns">
+        <button class="btn" id="btnCheckUpdate">Check for updates</button>
+        <button class="btn hidden" id="btnGetUpdate">Download</button>
+      </div>
+
+      <div class="sep"></div>
+      <div class="row"><span class="k">plan</span><span class="v" id="sPlan">—</span></div>
+      <div class="row"><span class="k">seats</span><span class="v" id="sSeats">—</span></div>
+      <label for="sKey">License key</label>
+      <input class="field" type="text" id="sKey" placeholder="paste your key" autocomplete="off" spellcheck="false">
+      <div class="btns">
+        <button class="btn primary" id="btnActivate">Activate</button>
+        <button class="btn" id="btnBuy">Get a license</button>
+        <button class="btn hidden" id="btnDeactivate">Remove</button>
+      </div>
+      <div class="note" id="sLicenseNote"></div>
+
+      <div class="sep"></div>
+      <div class="row"><span class="k">relay</span><span class="v" id="sRelay">—</span></div>
+      <div class="row"><span class="k">shell</span><span class="v" id="sShell">—</span></div>
+      <div class="row"><span class="k">your key</span><span class="v" id="sFinger">—</span></div>
+      <div class="row"><span class="k">audit log</span><span class="v" id="sAudit">—</span></div>
+
+      <div class="btns"><button class="btn" id="btnCloseSettings" style="flex:1">Close</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var APP_VERSION = '1.0.0';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var LOCAL_TOKEN = params.get('token');
+  var MODE = LOCAL_TOKEN ? 'host' : 'guest';
+
+  var state = {
+    me: '', meId: '', role: MODE === 'host' ? 'host' : 'watcher',
+    roster: [], locked: false, joinLine: '', code: '', cwd: '',
+    version: '', relay: '', shell: '', fingerprint: '', auditPath: '',
+    license: null, plan: null, buyUrl: '',
+  };
+
+  var cards = {};          // rid -> the <div> collecting that command's output
+  var transport = null;
+
+  // ======================= transcript =======================
+
+  var PALETTE = ['#ff9d4d', '#7ee0a0', '#79b8ff', '#d3a5ff', '#f0b849', '#8fd3c1'];
+  function hueFor(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+  function clockOf(ts) {
+    var d = new Date(ts || Date.now());
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  var stuck = true;   // follow the tail unless the reader has scrolled up
+  $('log').addEventListener('scroll', function () {
+    var l = $('log');
+    stuck = l.scrollHeight - l.scrollTop - l.clientHeight < 70;
+  });
+
+  // Everything is inserted above the prompt, so the prompt stays at the bottom
+  // the way a terminal's does.
+  function push(node) {
+    $('log').insertBefore(node, $('promptRow'));
+    if (stuck) $('log').scrollTop = $('log').scrollHeight;
+    return node;
+  }
+
+  function line(cls) {
+    var n = el('div', 'ln' + (cls ? ' ' + cls : ''));
+    for (var i = 1; i < arguments.length; i++) {
+      var part = arguments[i];
+      n.appendChild(typeof part === 'string' ? document.createTextNode(part) : part);
+    }
+    return push(n);
+  }
+
+  function stamp(ts) { return el('span', 't', clockOf(ts) + ' '); }
+
+  function addChat(from, text, ts) {
+    var who = el('span', 'who', from);
+    who.style.color = hueFor(from || '?');
+    line('chat', stamp(ts), who, el('span', 'arrow', ' │ '), text);
+  }
+
+  function addSys(text, level) {
+    line('sys' + (level === 'warn' ? ' warn' : level === 'error' || level === 'err' ? ' err' : ''),
+         el('span', 't', '· '), text);
+  }
+
+  function startCommand(rid, who, command) {
+    line('cmd', el('span', 'sig', '❯ '), command,
+         who ? el('span', 'by', '   — ' + who) : el('span'));
+    var out = el('div', 'ln out');
+    cards[rid] = push(out);
+  }
+
+  function appendOutput(rid, chunk) {
+    var box = cards[rid];
+    if (!box) { startCommand(rid, '', '(running)'); box = cards[rid]; }
+    box.textContent += chunk;
+    if (stuck) $('log').scrollTop = $('log').scrollHeight;
+  }
+
+  function finishCommand(rid, r) {
+    var box = cards[rid];
+    if (box && !box.textContent) box.remove();
+    delete cards[rid];
+    var badge;
+    if (r.timedOut) badge = el('span', 'warn', 'timed out');
+    else if (r.killed) badge = el('span', 'warn', 'stopped');
+    else if (r.code === 0) badge = el('span', 'ok', 'ok');
+    else badge = el('span', 'bad', 'exit ' + r.code);
+    var ms = r.ms < 1000 ? r.ms + 'ms' : (r.ms / 1000).toFixed(1) + 's';
+    line('res', badge, el('span', 'meta', '  ' + ms + (r.cwd ? '  ' + r.cwd : '')));
+    if (r.cwd) { state.cwd = r.cwd; paintPrompt(); }
+  }
+
+  function printRoster() {
+    line('head', 'who is here');
+    state.roster.forEach(function (m) {
+      var tag = m.role === 'host' ? 'host' : m.role === 'runner' ? 'can run' : 'watching';
+      var who = el('b', '', pad(m.name + (m.id === state.meId ? ' (you)' : ''), 22));
+      who.style.color = hueFor(m.name);
+      line('kv', '  ', who, tag);
+    });
+  }
+  function pad(s, n) { return s.length >= n ? s + ' ' : s + new Array(n - s.length + 1).join(' '); }
+
+  function setLive(on) { $('hDot').className = 'dot ' + (on ? 'live' : 'dead'); }
+
+  function shortPath(p) {
+    if (!p) return '';
+    var home = (state.home || '');
+    return home && p.indexOf(home) === 0 ? '~' + p.slice(home.length) : p;
+  }
+
+  function paintPrompt() {
+    var ps1 = $('ps1');
+    ps1.textContent = '';
+    if (state.cwd) {
+      ps1.appendChild(el('span', 'path', shortPath(state.cwd) + ' '));
+    }
+    ps1.appendChild(document.createTextNode('❯ '));
+  }
+
+  // ======================= commands =======================
+
+  var COMMANDS = [
+    ['/chat', 'send a message to everyone'],
+    ['/run', 'run a command on the host machine'],
+    ['/kill', 'stop whatever is running'],
+    ['/who', 'list everyone and what they can do'],
+    ['/settings', 'version, updates, license'],
+    ['/clear', 'clear the transcript'],
+    ['/help', 'this list'],
+  ];
+  var HOST_COMMANDS = [
+    ['/allow', 'let someone run commands'],
+    ['/deny', 'take that back'],
+    ['/kick', 'remove someone from the session'],
+    ['/lock', 'pause all remote commands'],
+    ['/unlock', 'lift it'],
+    ['/code', 'show the join code'],
+  ];
+  function commandList() {
+    return MODE === 'host' ? COMMANDS.concat(HOST_COMMANDS) : COMMANDS;
+  }
+
+  function canRun() { return MODE === 'host' || state.role === 'runner'; }
+
+  function printHelp() {
+    line('head', 'commands');
+    commandList().forEach(function (c) {
+      line('kv', '  ', el('b', '', pad(c[0], 12)), c[1]);
+    });
+    line('kv', '  ', el('b', '', pad('', 12)), 'plain text is sent as chat; $ prefix runs');
+  }
+
+  function submit(raw) {
+    var text = raw.replace(/\s+$/, '');
+    if (!text.trim()) return;
+
+    history.unshift(text);
+    if (history.length > 200) history.pop();
+    histIndex = -1;
+
+    // `$ cmd` is the shorthand; otherwise a leading slash selects a command and
+    // anything else is chat.
+    var name = null, rest = text.trim();
+    if (rest.indexOf('$ ') === 0) { name = 'run'; rest = rest.slice(2); }
+    else if (rest.charAt(0) === '/') {
+      var sp = rest.indexOf(' ');
+      name = (sp < 0 ? rest.slice(1) : rest.slice(1, sp)).toLowerCase();
+      rest = sp < 0 ? '' : rest.slice(sp + 1).trim();
+    }
+
+    if (name === null) return doChat(text);
+
+    switch (name) {
+      case 'chat': case 'say': return doChat(rest);
+      case 'run': case 'cmd': case 'command': case 'r': return doRun(rest);
+      case 'kill': return transport.send({ t: 'kill' });
+      case 'who': return printRoster();
+      case 'help': case '?': return printHelp();
+      case 'clear': return clearLog();
+      case 'settings': case 'prefs': return openSettings();
+      case 'code':
+        if (!state.code) return addSys('no join code here', 'warn');
+        line('kv', '  ', el('b', '', pad('code', 12)), state.code);
+        if (state.joinLine) line('kv', '  ', el('b', '', pad('invite', 12)), state.joinLine);
+        return;
+      case 'allow': case 'deny': case 'kick':
+        if (MODE !== 'host') return addSys('only the host can do that', 'warn');
+        if (!rest) return addSys('who? try /' + name + ' <name>', 'warn');
+        return transport.send({ t: name, name: rest });
+      case 'lock': case 'unlock':
+        if (MODE !== 'host') return addSys('only the host can do that', 'warn');
+        return transport.send({ t: 'lock', on: name === 'lock' });
+      case 'quit': case 'exit':
+        return addSys('close the window to leave', 'warn');
+      default:
+        return addSys('no such command: /' + name + '   (try /help)', 'warn');
+    }
+  }
+
+  function doChat(text) {
+    if (!text.trim()) return;
+    transport.send({ t: 'chat', text: text });
+  }
+
+  function doRun(command) {
+    if (!command.trim()) return addSys('nothing to run', 'warn');
+    if (!canRun()) return addSys('you are watching only — ask the host for run access', 'warn');
+    transport.send({ t: 'run', command: command });
+  }
+
+  function clearLog() {
+    var log = $('log'), row = $('promptRow');
+    while (log.firstChild && log.firstChild !== row) log.removeChild(log.firstChild);
+    cards = {};
+  }
+
+  // ======================= the prompt =======================
+
+  var history = [];
+  var histIndex = -1;
+  var draft = '';
+
+  function resize() {
+    var e = $('entry');
+    e.style.height = 'auto';
+    e.style.height = e.scrollHeight + 'px';
+  }
+
+  $('entry').addEventListener('input', resize);
+
+  $('entry').addEventListener('keydown', function (ev) {
+    var e = $('entry');
+
+    if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      var value = e.value;
+      e.value = '';
+      resize();
+      submit(value);
+      return;
+    }
+
+    // Tab completes a slash command, the way a shell would.
+    if (ev.key === 'Tab') {
+      ev.preventDefault();
+      var typed = e.value.trim();
+      if (typed.charAt(0) !== '/' || typed.indexOf(' ') >= 0) return;
+      var hits = commandList().filter(function (c) { return c[0].indexOf(typed) === 0; });
+      if (hits.length === 1) { e.value = hits[0][0] + ' '; resize(); }
+      else if (hits.length > 1) {
+        line('sys', el('span', 't', '· '), hits.map(function (h) { return h[0]; }).join('  '));
+      }
+      return;
+    }
+
+    // Up/down walk the history, like readline.
+    if ((ev.key === 'ArrowUp' || ev.key === 'ArrowDown') && e.value.indexOf('\n') < 0) {
+      if (!history.length) return;
+      ev.preventDefault();
+      if (ev.key === 'ArrowUp') {
+        if (histIndex === -1) draft = e.value;
+        histIndex = Math.min(histIndex + 1, history.length - 1);
+        e.value = history[histIndex];
+      } else {
+        histIndex = histIndex - 1;
+        e.value = histIndex < 0 ? (histIndex = -1, draft) : history[histIndex];
+      }
+      resize();
+      setTimeout(function () { e.selectionStart = e.selectionEnd = e.value.length; }, 0);
+      return;
+    }
+
+    if (ev.key === 'l' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); clearLog(); }
+    if (ev.key === 'c' && ev.ctrlKey && !e.value) { ev.preventDefault(); transport.send({ t: 'kill' }); }
+  });
+
+  // Clicking anywhere that is not a selection puts focus back on the prompt.
+  $('log').addEventListener('mousedown', function (ev) {
+    if (ev.target.closest('#promptRow')) return;
+    setTimeout(function () {
+      if (!String(window.getSelection())) $('entry').focus();
+    }, 0);
+  });
+
+  // ======================= settings =======================
+
+  function openSettings() {
+    $('veilSettings').classList.add('on');
+    paintSettings();
+  }
+  function closeSettings() { $('veilSettings').classList.remove('on'); $('entry').focus(); }
+  $('btnSettings').onclick = openSettings;
+  $('btnCloseSettings').onclick = closeSettings;
+
+  function paintSettings() {
+    $('sVersion').textContent = state.version || '—';
+    $('sRelay').textContent = state.relay || '—';
+    $('sShell').textContent = state.shell || '—';
+    $('sFinger').textContent = state.fingerprint || '—';
+    $('sAudit').textContent = state.auditPath || '—';
+
+    var plan = state.plan || { name: 'Free', maxGuests: 1 };
+    $('sPlan').textContent = plan.name + (plan.expiresAt ? '  (until ' + plan.expiresAt.slice(0, 10) + ')' : '');
+    $('sSeats').textContent = plan.maxGuests === Infinity || plan.maxGuests >= 99
+      ? 'unlimited guests'
+      : plan.maxGuests + ' guest' + (plan.maxGuests === 1 ? '' : 's') + ' at a time';
+    $('btnDeactivate').classList.toggle('hidden', !state.license);
+    if (state.license) $('sKey').value = state.license.masked || '';
+    $('btnBuy').classList.toggle('hidden', !state.buyUrl);
+  }
+
+  $('btnBuy').onclick = function () {
+    if (state.buyUrl) transport.send({ t: 'open-external', url: state.buyUrl });
+  };
+
+  $('btnActivate').onclick = function () {
+    var key = $('sKey').value.trim();
+    if (!key) { note('Paste the license key from your Polar receipt.', 'err'); return; }
+    note('Activating…');
+    $('btnActivate').disabled = true;
+    transport.send({ t: 'license.activate', key: key });
+  };
+
+  $('btnDeactivate').onclick = function () {
+    transport.send({ t: 'license.remove' });
+    note('License removed from this device.');
+  };
+
+  function note(text, kind) {
+    var n = $('sLicenseNote');
+    n.textContent = text;
+    n.className = 'note' + (kind ? ' ' + kind : '');
+  }
+
+  $('btnCheckUpdate').onclick = function () {
+    $('sUpdate').textContent = 'checking…';
+    $('btnGetUpdate').classList.add('hidden');
+    transport.send({ t: 'update.check' });
+  };
+  $('btnGetUpdate').onclick = function () {
+    if (state.updateUrl) transport.send({ t: 'open-external', url: state.updateUrl });
+  };
+
+  // ======================= risky-command confirm =======================
+
+  var askId = null;
+  function askAbout(c) {
+    askId = c.id;
+    $('askTop').className = 'ask-top ' + c.level;
+    $('askTop').textContent = c.level === 'destructive' ? 'Destructive command' : 'This would expose secrets';
+    $('askWho').textContent = c.who + ' wants to run this on your machine:';
+    $('askCmd').textContent = c.command;
+    var why = 'Flagged for: ' + c.reasons.join(', ') + '.';
+    if (c.level === 'sensitive' && c.watchers > 0) {
+      why += ' ' + c.watchers + ' other ' + (c.watchers === 1 ? 'person is' : 'people are') + ' watching this output.';
+    }
+    $('askWhy').textContent = why;
+    $('veilAsk').classList.add('on');
+  }
+  function answer(ok) {
+    if (askId === null) return;
+    transport.send({ t: 'confirm', id: askId, ok: ok });
+    askId = null;
+    $('veilAsk').classList.remove('on');
+    $('entry').focus();
+  }
+  $('askNo').onclick = function () { answer(false); };
+  $('askYes').onclick = function () { answer(true); };
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (askId !== null) return answer(false);
+    if ($('veilSettings').classList.contains('on')) closeSettings();
+  });
+
+  // ======================= event sink =======================
+
+  function handle(ev) {
+    switch (ev.t) {
+      case 'snapshot':
+        state.me = ev.me; state.meId = ev.meId;
+        state.code = ev.code || ''; state.joinLine = ev.joinLine || '';
+        state.roster = ev.roster || []; state.locked = !!ev.locked;
+        state.version = ev.version || ''; state.relay = ev.relay || '';
+        state.shell = ev.shell || ''; state.fingerprint = ev.fingerprint || '';
+        state.auditPath = ev.auditPath || ''; state.cwd = ev.cwd || '';
+        state.home = ev.home || ''; state.license = ev.license || null;
+        state.plan = ev.plan || null; state.buyUrl = ev.buyUrl || '';
+        $('hTitle').textContent = ev.me ? ev.me + '@hearth' : 'hearth';
+        $('hCode').textContent = state.code || '';
+        paintPrompt();
+        return;
+      case 'chat': return addChat(ev.from, ev.text, ev.ts);
+      case 'sys': return addSys(ev.text, ev.level);
+      case 'command-start': return startCommand(ev.rid, ev.requester, ev.command);
+      case 'output': return appendOutput(ev.rid, ev.chunk);
+      case 'command-done': return finishCommand(ev.rid, ev);
+      case 'roster': {
+        state.roster = ev.members || [];
+        var me = state.roster.filter(function (m) { return m.id === state.meId; })[0];
+        if (me && me.role !== state.role) {
+          state.role = me.role;
+          addSys(me.role === 'runner' ? 'the host gave you run access' : 'your run access was removed', 'warn');
+        }
+        return;
+      }
+      case 'locked': state.locked = !!ev.locked; return;
+      case 'confirm': return askAbout(ev);
+      case 'confirm-resolved':
+        if (askId === ev.id) { askId = null; $('veilAsk').classList.remove('on'); }
+        return;
+      case 'license':
+        state.license = ev.license || null;
+        state.plan = ev.plan || null;
+        $('btnActivate').disabled = false;
+        note(ev.message || '', ev.ok ? 'ok' : 'err');
+        paintSettings();
+        if (ev.ok && ev.message) addSys(ev.message);
+        return;
+      case 'update':
+        state.updateUrl = ev.url || '';
+        $('sUpdate').textContent = ev.message;
+        $('btnGetUpdate').classList.toggle('hidden', !ev.url);
+        return;
+      case 'status': return setLive(ev.live);
+      default: return;
+    }
+  }
+
+  // ======================= host transport (loopback) =======================
+
+  function LocalTransport() {
+    var sock = new WebSocket('ws://' + location.host + '/ui?token=' + encodeURIComponent(LOCAL_TOKEN));
+    var api = {
+      send: function (obj) { if (sock.readyState === 1) sock.send(JSON.stringify(obj)); },
+      start: function () {
+        return new Promise(function (resolve, reject) {
+          sock.onopen = function () { setLive(true); resolve(); };
+          sock.onerror = function () { reject(new Error('could not reach the Hearth daemon')); };
+          sock.onclose = function () { setLive(false); addSys('The Hearth daemon went away.', 'error'); };
+          sock.onmessage = function (m) {
+            try { handle(JSON.parse(m.data)); } catch (e) {}
+          };
+        });
+      },
+    };
+    return api;
+  }
+
+  // ======================= guest transport (relay) =======================
+
+  // These MUST mirror lib/crypto.js byte for byte.
+  var enc = new TextEncoder(), dec = new TextDecoder();
+  function b64(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+  function b64d(str) {
+    var bin = atob(str), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function hex(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += ('0' + bytes[i].toString(16)).slice(-2);
+    return s;
+  }
+  function canonical(obj) {
+    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+    if (Array.isArray(obj)) return '[' + obj.map(canonical).join(',') + ']';
+    var keys = Object.keys(obj).filter(function (k) { return k !== 'sig'; }).sort();
+    return '{' + keys.map(function (k) {
+      return JSON.stringify(k) + ':' + canonical(obj[k]);
+    }).join(',') + '}';
+  }
+
+  var HOST_ONLY = { out: 1, done: 1, started: 1, roster: 1, sys: 1, denied: 1,
+                    grant: 1, revoke: 1, kicked: 1 };
+
+  function RelayTransport(cfg) {
+    var aes = null, room = null, kp = null, pub = null;
+    var myId = hex(crypto.getRandomValues(new Uint8Array(8)));
+    var pinned = {}, pinnedPub = {}, hostId = null, greeted = null;
+    var sock = null;
+
+    state.meId = myId;
+    state.me = cfg.name;
+
+    function fingerprintOf(pubB64) {
+      return crypto.subtle.digest('SHA-256', b64d(pubB64)).then(function (h) {
+        var s = hex(new Uint8Array(h)).toUpperCase().slice(0, 16);
+        return s.match(/.{4}/g).join('-');
+      });
+    }
+
+    async function setup() {
+      var norm = cfg.code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (norm.length < 8) throw new Error('That join code looks too short.');
+      var base = await crypto.subtle.importKey('raw', enc.encode(norm), 'PBKDF2', false, ['deriveBits']);
+      var bits = new Uint8Array(await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt: enc.encode('hearth-v1-join-code'), iterations: 200000, hash: 'SHA-256' },
+        base, 256));
+      aes = await crypto.subtle.importKey('raw', bits, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+
+      var mix = new Uint8Array(bits.length + 11);
+      mix.set(bits, 0);
+      mix.set(enc.encode('hearth-room'), bits.length);
+      room = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', mix))).slice(0, 32);
+
+      kp = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+      pub = b64(new Uint8Array(await crypto.subtle.exportKey('spki', kp.publicKey)));
+    }
+
+    async function seal(obj) {
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      var ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, aes,
+        enc.encode(JSON.stringify(obj))));
+      var out = new Uint8Array(12 + ct.length);
+      out.set(iv, 0); out.set(ct, 12);
+      return b64(out);
+    }
+
+    async function unseal(b64str) {
+      try {
+        var buf = b64d(b64str);
+        var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.subarray(0, 12) }, aes,
+          buf.subarray(12));
+        return JSON.parse(dec.decode(pt));
+      } catch (e) { return null; }
+    }
+
+    async function signed(msg) {
+      var full = Object.assign({ v: 1, from: myId, name: cfg.name, ts: Date.now() }, msg);
+      var sig = await crypto.subtle.sign({ name: 'Ed25519' }, kp.privateKey,
+        enc.encode(canonical(full)));
+      full.sig = b64(new Uint8Array(sig));
+      return full;
+    }
+
+    async function emit(msg) {
+      if (!sock || sock.readyState !== 1) return;
+      sock.send(JSON.stringify({ t: 'msg', e: await seal(await signed(msg)) }));
+    }
+
+    // Same trust rules as the Node client: pin on first sight, and refuse
+    // authority-bearing messages from anyone but the pinned host.
+    async function authenticate(msg) {
+      if (msg.t === 'hello') {
+        var key;
+        try {
+          key = await crypto.subtle.importKey('spki', b64d(msg.pub), { name: 'Ed25519' }, true, ['verify']);
+        } catch (e) { return false; }
+        var ok = await crypto.subtle.verify({ name: 'Ed25519' }, key, b64d(msg.sig || ''),
+          enc.encode(canonical(msg)));
+        if (!ok) return false;
+        if (pinnedPub[msg.from] !== undefined) {
+          if (pinnedPub[msg.from] !== msg.pub) {
+            addSys('Rejected a message claiming to be ' + msg.name + ' with a different signing key.', 'error');
+            return false;
+          }
+        } else {
+          pinned[msg.from] = key;
+          pinnedPub[msg.from] = msg.pub;
+        }
+        if (msg.role === 'host') {
+          if (hostId && hostId !== msg.from) {
+            addSys('Ignored a second participant claiming to be the host.', 'error');
+            return false;
+          }
+          hostId = msg.from;
+        }
+        return true;
+      }
+      var pk = pinned[msg.from];
+      if (!pk) return false;
+      var good = await crypto.subtle.verify({ name: 'Ed25519' }, pk, b64d(msg.sig || ''),
+        enc.encode(canonical(msg)));
+      if (!good) { addSys('Dropped a message with an invalid signature.', 'error'); return false; }
+      if (HOST_ONLY[msg.t] && msg.from !== hostId) {
+        addSys('Dropped a "' + msg.t + '" message from ' + msg.name + ' - only the host may send that.', 'error');
+        return false;
+      }
+      return true;
+    }
+
+    async function onProtocol(msg) {
+      switch (msg.t) {
+        case 'hello':
+          if (msg.role === 'host') {
+            var fp = await fingerprintOf(msg.pub);
+            $('hTitle').textContent = msg.name + "'s terminal";
+            addSys('Connected to ' + msg.name + "'s machine  ·  key " + fp);
+            if (greeted !== msg.from) {
+              greeted = msg.from;
+              await emit({ t: 'hello', pub: pub, role: 'guest' });
+            }
+          }
+          return;
+        case 'roster': return handle({ t: 'roster', members: msg.members });
+        case 'chat': return handle({ t: 'chat', from: msg.name, text: msg.text, ts: msg.ts });
+        case 'sys': return handle({ t: 'sys', text: msg.text, level: msg.level });
+        case 'started': return handle({ t: 'command-start', rid: msg.rid, requester: msg.who, command: msg.command });
+        case 'out': return handle({ t: 'output', rid: msg.rid, chunk: msg.chunk });
+        case 'done': return handle({ t: 'command-done', rid: msg.rid, code: msg.code, ms: msg.ms,
+                                     timedOut: msg.timedOut, killed: msg.killed, cwd: msg.cwd });
+        case 'denied': return handle({ t: 'sys', text: msg.reason, level: 'warn' });
+        case 'kicked':
+          if (msg.target === myId) {
+            addSys('The host removed you from the session.', 'error');
+            setLive(false);
+            try { sock.close(); } catch (e) {}
+          }
+          return;
+        default: return;
+      }
+    }
+
+    return {
+      send: function (obj) {
+        if (obj.t === 'chat') { emit({ t: 'chat', text: obj.text }); addChat(cfg.name, obj.text, Date.now()); }
+        else if (obj.t === 'run') emit({ t: 'run', rid: hex(crypto.getRandomValues(new Uint8Array(8))), cmd: obj.command });
+        else if (obj.t === 'kill') emit({ t: 'kill' });
+        else if (obj.t === 'open-external') { try { window.open(obj.url, '_blank', 'noopener'); } catch (e) {} }
+        else if (obj.t === 'update.check') {
+          handle({ t: 'update', message: 'updates are managed by the host app' });
+        } else if (obj.t === 'license.activate' || obj.t === 'license.remove') {
+          handle({ t: 'license', ok: false, message: 'a license belongs to whoever hosts the session, not a guest' });
+        }
+      },
+      start: async function () {
+        await setup();
+        await new Promise(function (resolve, reject) {
+          sock = new WebSocket(cfg.relay);
+          var settled = false;
+          var timer = setTimeout(function () {
+            if (!settled) { settled = true; reject(new Error('The relay did not respond.')); }
+          }, 12000);
+
+          sock.onopen = function () { sock.send(JSON.stringify({ t: 'hello', room: room })); };
+          sock.onerror = function () {
+            clearTimeout(timer);
+            if (!settled) { settled = true; reject(new Error('Could not reach the relay at ' + cfg.relay)); }
+          };
+          sock.onclose = function () {
+            setLive(false);
+            if (!settled) { settled = true; clearTimeout(timer); reject(new Error('The relay closed the connection.')); }
+            else addSys('Disconnected from the relay.', 'error');
+          };
+          sock.onmessage = async function (m) {
+            var outer;
+            try { outer = JSON.parse(m.data); } catch (e) { return; }
+
+            if (outer.t === 'joined') {
+              clearTimeout(timer);
+              if (!settled) { settled = true; setLive(true); resolve(); }
+              await emit({ t: 'hello', pub: pub, role: 'guest' });
+              handle({ t: 'snapshot', me: cfg.name, meId: myId, roster: [],
+                       relay: cfg.relay, version: APP_VERSION });
+              addSys('Waiting for the host…');
+              return;
+            }
+            if (outer.t === 'error') {
+              clearTimeout(timer);
+              if (!settled) { settled = true; reject(new Error('Relay: ' + outer.reason)); }
+              return;
+            }
+            if (outer.t !== 'msg' || typeof outer.e !== 'string') return;
+
+            var msg = await unseal(outer.e);
+            if (!msg || msg.v !== 1 || msg.from === myId) return;
+            if (!(await authenticate(msg))) return;
+            await onProtocol(msg);
+          };
+        });
+      },
+    };
+  }
+
+  // ======================= boot =======================
+
+  function showApp() {
+    $('join').style.display = 'none';
+    $('app').classList.remove('hidden');
+    paintPrompt();
+    $('entry').focus();
+  }
+
+  if (MODE === 'host') {
+    transport = LocalTransport();
+    showApp();
+    transport.start().catch(function (e) {
+      addSys(e.message + ' Is `hearth host --ui` still running?', 'error');
+    });
+  } else {
+    // Guests land on the relay-served page: prefill what we can infer.
+    var guessRelay = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+    $('fRelay').value = params.get('relay') || guessRelay;
+    $('fCode').value = (params.get('code') || location.hash.replace('#', '') || '').toUpperCase();
+    $('fName').value = localStorage.getItem('hearth.name') || '';
+    if (!(window.crypto && crypto.subtle)) {
+      $('fErr').textContent = 'This page needs https (or localhost) to use encryption.';
+      $('fGo').disabled = true;
+    }
+    $('fCode').focus();
+
+    $('fGo').onclick = async function () {
+      var code = $('fCode').value.trim();
+      var name = $('fName').value.trim() || 'guest';
+      var relay = $('fRelay').value.trim();
+      if (!code) { $('fErr').textContent = 'Enter the join code your friend sent you.'; return; }
+      localStorage.setItem('hearth.name', name);
+      $('fGo').disabled = true;
+      $('fGo').textContent = 'Connecting…';
+      $('fErr').textContent = '';
+      try {
+        transport = RelayTransport({ code: code, name: name, relay: relay });
+        await transport.start();
+        showApp();
+      } catch (e) {
+        $('fErr').textContent = e.message;
+        $('fGo').disabled = false;
+        $('fGo').textContent = 'Join session';
+      }
+    };
+    ['fCode', 'fName', 'fRelay'].forEach(function (id) {
+      $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') $('fGo').click(); });
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
+
+</body>
+</html>

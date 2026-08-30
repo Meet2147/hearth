@@ -1,0 +1,8 @@
+node_modules/
+desktop/dist/
+desktop/build/icon.ico
+desktop/build/icon.icns
+desktop/build/icon.png
+mac/build/
+*.log
+.DS_Store

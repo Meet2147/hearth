@@ -1,0 +1,19 @@
+{
+  "name": "hearth",
+  "version": "1.0.0",
+  "description": "A shared terminal for friends. Chat and run commands together on one machine, end-to-end encrypted, with permissions the host controls.",
+  "main": "hearth.js",
+  "bin": {
+    "hearth": "hearth.js"
+  },
+  "scripts": {
+    "start": "node hearth.js",
+    "relay": "node relay.js",
+    "test": "node test/run.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true
+}

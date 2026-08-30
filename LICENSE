@@ -1,0 +1,25 @@
+Hearth
+Copyright (c) 2026 Meet Jethwa. All rights reserved.
+
+This source is made available for personal use, evaluation, and contribution.
+
+You may:
+  - use Hearth for personal, non-commercial purposes;
+  - read, build and modify the source for your own use;
+  - submit contributions back to the project.
+
+You may not, without prior written permission:
+  - redistribute this software or derivative works, modified or unmodified;
+  - offer it, or a derivative of it, as a commercial product or service;
+  - remove or circumvent licensing, metering or attribution mechanisms.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Note: this is a deliberate, reversible default. Source-available can be opened
+later; anything published under a permissive licence cannot be closed again.
+See MONETIZATION.md.
