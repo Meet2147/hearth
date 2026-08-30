@@ -1,0 +1,22 @@
+# Render blueprint. Deploying the landing page as a static site: Render issues
+# and renews the TLS certificate itself, which for a .app domain is the whole
+# ballgame - .app is HSTS-preloaded, so a site without a valid certificate is
+# not reachable at all, it is not merely insecure.
+services:
+  - type: web
+    name: hearth-site
+    runtime: static
+    # Nothing to compile: the page is a single self-contained file.
+    buildCommand: "echo 'static site, nothing to build'"
+    staticPublishPath: ./docs
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
