@@ -50,6 +50,10 @@
       {
         "from": "../web",
         "to": "app/web"
+      },
+      {
+        "from": "../package.json",
+        "to": "app/package.json"
       }
     ],
     "mac": {

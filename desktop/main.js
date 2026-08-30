@@ -95,7 +95,7 @@ function configuredRelay() {
 function runNode(script, args, extraEnv) {
   return spawn(process.execPath, [path.join(APP_ROOT, script), ...args], {
     cwd: os.homedir(),
-    env: { ...process.env, ...extraEnv, ELECTRON_RUN_AS_NODE: '1', HEARTH_APP: '1' },
+    env: { ...process.env, ...extraEnv, ELECTRON_RUN_AS_NODE: '1', HEARTH_APP: '1', HEARTH_VERSION: app.getVersion() },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
