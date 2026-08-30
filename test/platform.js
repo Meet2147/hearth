@@ -8,6 +8,7 @@
  */
 'use strict';
 
+const fs = require('fs');
 const os = require('os');
 
 const isWin = process.platform === 'win32';
@@ -15,7 +16,22 @@ const isWin = process.platform === 'win32';
 // PowerShell emits CRLF; assertions compare against LF.
 const normalize = (text) => String(text == null ? '' : text).replace(/\r\n/g, '\n');
 
-const tempDir = isWin ? (process.env.TEMP || 'C:\\Windows\\Temp') : '/tmp';
+// Windows hands out TEMP in 8.3 short form (C:\Users\RUNNER~1\...) while
+// PowerShell reports the long path, so resolve it before comparing the two.
+const tempDir = (() => {
+  const raw = isWin ? (process.env.TEMP || 'C:\\Windows\\Temp') : '/tmp';
+  try { return fs.realpathSync.native(raw); } catch (e) { return raw; }
+})();
+
+// macOS reports /private/tmp for /tmp; Windows differs in case. Compare the way
+// the platform actually means it.
+function samePath(a, b) {
+  const clean = (p) => String(p || '').replace(/[\\/]+$/, '').toLowerCase();
+  let x = clean(a), y = clean(b);
+  try { x = clean(fs.realpathSync.native(a)); } catch (e) {}
+  try { y = clean(fs.realpathSync.native(b)); } catch (e) {}
+  return x === y || x.endsWith(y) || y.endsWith(x);
+}
 
 const cmd = {
   echo: (text) => (isWin ? `Write-Output "${text}"` : `echo "${text}"`),
@@ -66,4 +82,4 @@ const cmd = {
     : 'echo one; echo two',
 };
 
-module.exports = { isWin, normalize, tempDir, cmd };
+module.exports = { isWin, normalize, tempDir, samePath, cmd };

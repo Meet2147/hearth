@@ -8,7 +8,7 @@
 
 const assert = require('assert');
 const { createShell, hostShellSupported } = require('../lib/shell');
-const { isWin, normalize, tempDir, cmd } = require('./platform');
+const { isWin, normalize, tempDir, samePath, cmd } = require('./platform');
 
 let passed = 0;
 const check = (name, cond, extra) => {
@@ -37,13 +37,12 @@ const check = (name, cond, extra) => {
   check('reports exit code 0', r.code === 0);
 
   r = await collect(cmd.cd(tempDir));
-  check('cd is reflected in the reported cwd',
-    r.cwd.toLowerCase().indexOf(tempDir.toLowerCase().replace(/\\$/, '')) >= 0 ||
-    r.cwd === '/private/tmp', r.cwd);
+  check('cd is reflected in the reported cwd', samePath(r.cwd, tempDir),
+    r.cwd + '  vs  ' + tempDir);
 
   r = await collect(cmd.pwd);
   check('working directory PERSISTS to the next command',
-    r.output.toLowerCase().indexOf(tempDir.toLowerCase().slice(-4)) >= 0, r.output.trim());
+    samePath(r.output.trim(), tempDir), r.output.trim() + '  vs  ' + tempDir);
 
   await collect(cmd.setVar('HEARTH_TEST_VAR', 'persisted'));
   r = await collect(cmd.getVar('HEARTH_TEST_VAR'));

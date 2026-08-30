@@ -13,7 +13,7 @@ const PORT = 8795;
 const RELAY = 'ws://127.0.0.1:' + PORT + '/ws';
 const CODE = 'TEST-CODE-ABCD-1234';
 const CLI = path.join(__dirname, '..', 'hearth.js');
-const { isWin, tempDir, cmd } = require('./platform');
+const { isWin, tempDir, samePath, cmd } = require('./platform');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let passed = 0;
@@ -24,7 +24,7 @@ const check = (name, cond, extra) => {
 
 function launch(args, env) {
   const p = spawn(process.execPath, [CLI, ...args], {
-    env: { ...process.env, HOME: TMP, NO_COLOR: '1', ...env },
+    env: { ...process.env, HOME: TMP, USERPROFILE: TMP, NO_COLOR: '1', ...env },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   p.buf = '';
@@ -113,7 +113,7 @@ async function waitFor(proc, needle, ms) {
   host.type('/run ' + cmd.pwd);
   await waitIdle(host);
   check('shell state persists between different people',
-    host.buf.slice(beforeCd).toLowerCase().indexOf(tempDir.toLowerCase().slice(-4)) >= 0,
+    host.buf.slice(beforeCd).toLowerCase().indexOf(require('path').basename(tempDir).toLowerCase()) >= 0,
     host.buf.slice(-900));
 
   // $ shorthand
