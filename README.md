@@ -37,11 +37,18 @@ It prints a line to send your friends. In a third terminal, paste it:
 node hearth.js join DEMO-CODE-1234-5678 --relay ws://127.0.0.1:8787/ws
 ```
 
-For real use, put the relay on a small server (see **Running a relay**) and save
-it once:
+For friends on other networks there's nothing to configure — Hearth ships with a
+hosted relay as the default. Just:
 
 ```bash
-node hearth.js config --relay wss://relay.example.com/ws --name meet
+node hearth.js host          # you: share your shell, get a join code
+node hearth.js join <CODE>   # them: join from anywhere
+```
+
+Prefer your own relay? Point both ends at it (see **Running a relay**):
+
+```bash
+node hearth.js config --relay wss://your-relay.example.com/ws --name meet
 ```
 
 ## The desktop app
@@ -133,7 +140,7 @@ is in the terminal.
   key          D4EB-4F88-2195-9C6A
 
   Send your friends this line:
-     hearth join DEMO-CODE-1234-5678 --relay wss://relay.example.com/ws
+     hearth join DEMO-CODE-1234-5678
 
 12:19  -       Arjun joined as a watcher  (key 21DF-CF93-BDFF-FEDE)
 12:19  Arjun   hey, my tests are failing on this box - can you look?

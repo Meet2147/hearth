@@ -110,12 +110,16 @@ function showStatus(message, isError) {
 
 // --- the daemon ------------------------------------------------------------
 
-async function startDaemon() {
-  let relayUrl = configuredRelay();
+// The hosted relay, so a session is reachable by friends on other networks
+// out of the box. A saved config relay, or a ws://127.0.0.1 one, still wins.
+const DEFAULT_RELAY = process.env.HEARTH_RELAY || 'wss://hearthrelay.onrender.com/ws';
 
-  if (!relayUrl) {
-    // Nothing configured: run a relay locally so the app works on its own.
-    // Friends elsewhere need a relay on a reachable host - see the README.
+async function startDaemon() {
+  let relayUrl = configuredRelay() || DEFAULT_RELAY;
+
+  // Only stand up a local relay if the chosen relay is itself local — otherwise
+  // we use the hosted one, which friends elsewhere can actually reach.
+  if (/^wss?:\/\/(127\.0\.0\.1|localhost)\b/.test(relayUrl)) {
     const relayPort = (await freePort()) || 8787;
     relayUrl = 'ws://127.0.0.1:' + relayPort + '/ws';
     relayProc = runNode('relay.js', [], { PORT: String(relayPort) });

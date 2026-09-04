@@ -23,8 +23,12 @@ const { createLocalUI } = require('./lib/localui');
 const license = require('./lib/license');
 const { HostSession, GuestSession, hostShellSupported, HOME } = require('./lib/session');
 
-const VERSION = '1.0.0';
+const VERSION = (() => { try { return require('./package.json').version; } catch (e) { return '1.2.0'; } })();
 const CONFIG_PATH = path.join(HOME, 'config.json');
+
+// The hosted relay, so host/join/app work with no --relay flag. An explicit
+// --relay or a saved config still wins; set HEARTH_RELAY to override.
+const DEFAULT_RELAY = process.env.HEARTH_RELAY || 'wss://hearthrelay.onrender.com/ws';
 
 // --- config -----------------------------------------------------------------
 
@@ -242,7 +246,7 @@ async function runHost(args) {
   }
 
   const cfg = loadConfig();
-  const relayUrl = args.relay || cfg.relay;
+  const relayUrl = args.relay || cfg.relay || DEFAULT_RELAY;
   if (!relayUrl) {
     console.error('\n  No relay configured. Point Hearth at one:');
     console.error('    hearth config --relay wss://your-relay.example.com/ws');
@@ -421,7 +425,7 @@ function shortCwd(dir) {
 async function runGuest(args) {
   const cfg = loadConfig();
   const code = args._[1] || args.code;
-  const relayUrl = args.relay || cfg.relay;
+  const relayUrl = args.relay || cfg.relay || DEFAULT_RELAY;
 
   if (!code) { console.error('\n  Usage: hearth join CODE [--relay URL]\n'); process.exit(1); }
   if (!relayUrl) {
