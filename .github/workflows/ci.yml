@@ -50,10 +50,10 @@ jobs:
         include:
           - os: macos-latest
             target: --mac
-            artifact: hearth-macos
+            files: desktop/dist/*.dmg
           - os: windows-latest
             target: --win
-            artifact: hearth-windows
+            files: desktop/dist/*.exe
     steps:
       - uses: actions/checkout@v4
 
@@ -118,6 +118,4 @@ jobs:
           draft: false
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: |
-            desktop/dist/*.dmg
-            desktop/dist/*.exe
+          files: ${{ matrix.files }}
