@@ -20,3 +20,20 @@ services:
       - path: /*
         name: Strict-Transport-Security
         value: max-age=31536000; includeSubDomains
+
+  # The relay: a blind WebSocket switchboard. Render terminates TLS, so clients
+  # connect over wss:// and the relay only ever sees ciphertext. It has no
+  # dependencies to install; it binds Render's $PORT on 0.0.0.0 on its own.
+  - type: web
+    name: hearth-relay
+    runtime: node
+    plan: free
+    buildCommand: "echo 'no dependencies to install'"
+    startCommand: "node relay.js"
+    healthCheckPath: /health
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: MAX_PER_ROOM
+        value: "16"
+      - key: IDLE_MS
+        value: "600000"
