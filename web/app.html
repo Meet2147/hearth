@@ -84,9 +84,20 @@
 
   /* ---------- prompt ---------- */
   #promptRow {
-    position: sticky; bottom: 0; display: flex; align-items: flex-start; gap: 0;
+    position: sticky; bottom: 0; display: flex; flex-direction: column; gap: 5px;
     background: var(--bg); padding: 4px 0 10px;
   }
+  .prompt-line { display: flex; align-items: flex-start; gap: 0; }
+  /* the "what next" nudge, right above the input */
+  #hintbar {
+    display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--dim);
+    padding: 3px 8px; border-left: 2px solid var(--ember-dim, #6b3d16);
+    background: linear-gradient(90deg, rgba(255,157,77,.06), transparent 70%);
+    border-radius: 0 5px 5px 0;
+  }
+  #hintbar .spark { color: var(--ember); }
+  #hintbar b { color: var(--text); font-weight: 600; }
+  #hintbar code { color: var(--blue); font-family: var(--mono); }
   #ps1 { color: var(--ember); white-space: pre; flex: none; }
   #ps1 .path { color: var(--blue); }
   #entry {
@@ -96,6 +107,28 @@
   }
   #entry::placeholder { color: var(--faint); }
   #ghost { color: var(--faint); pointer-events: none; white-space: pre; }
+
+  /* ---------- welcome (empty state) ---------- */
+  .welcome { margin: 6px 2px 14px; }
+  .welcome .hi { font-size: 15px; color: var(--text); margin-bottom: 4px; }
+  .welcome .hi .spark { color: var(--ember); }
+  .welcome .lede { color: var(--dim); margin-bottom: 14px; line-height: 1.6; max-width: 62ch; }
+  .welcome .invite {
+    display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--bg-soft);
+  }
+  .welcome .invite .code { font-family: var(--mono); font-size: 15px; letter-spacing: 1px; color: var(--ember); }
+  .welcome .invite .copy { font-size: 11px; color: var(--dim); border: 1px solid var(--line);
+    border-radius: 5px; padding: 3px 8px; cursor: pointer; }
+  .welcome .invite .copy:hover { color: var(--text); border-color: var(--ember-dim, #6b3d16); }
+  .welcome .steps { display: grid; gap: 6px; }
+  .welcome .steps .s { display: flex; gap: 12px; align-items: baseline; }
+  .welcome .steps .s code { color: var(--blue); font-family: var(--mono); min-width: 15ch; }
+  .welcome .steps .s span { color: var(--dim); }
+  .welcome .waiting { color: var(--faint); margin-top: 14px; }
+  .welcome .waiting .pulse { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ember); margin-right: 6px; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 
   /* ---------- overlays ---------- */
   .veil {
@@ -189,9 +222,12 @@
 
   <div id="log">
     <div id="promptRow">
-      <span id="ps1">❯ </span>
-      <textarea id="entry" rows="1" spellcheck="false" autocomplete="off"
-                autocapitalize="off" autocorrect="off"></textarea>
+      <div id="hintbar" hidden></div>
+      <div class="prompt-line">
+        <span id="ps1">❯ </span>
+        <textarea id="entry" rows="1" spellcheck="false" autocomplete="off"
+                  autocapitalize="off" autocorrect="off"></textarea>
+      </div>
     </div>
   </div>
 </div>
@@ -377,6 +413,129 @@
     ps1.appendChild(document.createTextNode('❯ '));
   }
 
+  // ======================= onboarding =======================
+
+  var welcomeNode = null;
+  var running = false;
+
+  function guests() {
+    return state.roster.filter(function (m) { return m.role !== 'host'; });
+  }
+  function guestJoinUrl() {
+    // the relay's http page, where a friend types the code
+    var r = state.relay || '';
+    return r.replace(/^ws/, 'http').replace(/\/ws$/, '/');
+  }
+
+  // The empty-state shown before anything happens, so a new user is never
+  // staring at a blank prompt wondering what to do.
+  function renderWelcome() {
+    if (welcomeNode || document.querySelector('#log .ln')) return; // only when truly empty
+    var w = el('div', 'welcome');
+    var host = MODE === 'host';
+
+    var hi = el('div', 'hi');
+    hi.appendChild(el('span', 'spark', '✦ '));
+    hi.appendChild(document.createTextNode(
+      host ? 'Welcome, ' + (state.me || 'there') + " — this is your shared terminal."
+           : "You're in a shared terminal."));
+    w.appendChild(hi);
+
+    w.appendChild(el('div', 'lede', host
+      ? 'Everything you run happens on this machine, and anyone you invite watches it live. They can chat right away, and run commands once you allow them.'
+      : 'Watch commands run live and chat any time. You can run commands yourself once the host gives you access.'));
+
+    if (host && state.code) {
+      var inv = el('div', 'invite');
+      inv.appendChild(el('span', 'code', state.code));
+      var copy = el('span', 'copy', 'copy invite');
+      copy.onclick = function () {
+        $('hCode').click ? $('hCode').click() : null;   // reuse the title-bar copy
+        copy.textContent = 'copied ✓';
+        setTimeout(function () { copy.textContent = 'copy invite'; }, 1500);
+      };
+      inv.appendChild(copy);
+      w.appendChild(inv);
+      var url = guestJoinUrl();
+      if (url) w.appendChild(el('div', 'lede', 'Friends open ' + url + ' and type that code — nothing to install.'));
+    }
+
+    var steps = el('div', 'steps');
+    var rows = host
+      ? [['type a message', 'say hi to whoever joins'],
+         ['/run echo hello', 'run a command everyone sees'],
+         ['/help', 'every command']]
+      : [['type a message', 'chat with the room'],
+         ['/help', 'every command'],
+         ['/who', "see who's here"]];
+    rows.forEach(function (r) {
+      var s = el('div', 's');
+      s.appendChild(el('code', '', r[0]));
+      s.appendChild(el('span', '', r[1]));
+      steps.appendChild(s);
+    });
+    w.appendChild(steps);
+
+    if (host) {
+      var wait = el('div', 'waiting');
+      wait.appendChild(el('span', 'pulse'));
+      wait.appendChild(document.createTextNode('Waiting for someone to join…'));
+      w.appendChild(wait);
+    }
+
+    welcomeNode = push(w);
+  }
+
+  function dropWelcome() {
+    if (welcomeNode) { welcomeNode.remove(); welcomeNode = null; }
+  }
+
+  // The live "what next" nudge above the prompt — reads the room and tells the
+  // user the single most useful thing to do right now.
+  function updateHint() {
+    var bar = $('hintbar');
+    var parts;   // array of {text} or {code} or {b}
+    var host = MODE === 'host';
+
+    if (running) {
+      parts = [t('a command is running — '), code('/kill'), t(' to stop it')];
+    } else if (host) {
+      var g = guests();
+      if (g.length === 0) {
+        parts = [t('Share your code to bring a friend in — '), code('/code'), t(' shows it again')];
+      } else {
+        var watchers = g.filter(function (m) { return m.role === 'watcher'; });
+        var runners = g.filter(function (m) { return m.role === 'runner'; });
+        if (watchers.length && !runners.length) {
+          parts = [b(watchers[0].name + ' is here'), t(' — let them run with '),
+                   code('/allow ' + watchers[0].name), t(', or just chat')];
+        } else if (runners.length) {
+          parts = [b(runners.map(function (m) { return m.name; }).join(', ') + ' can run'),
+                   t(' — try '), code('/run'), t(' together, or '), code('/who')];
+        } else {
+          parts = [t('someone joined — say hi, or '), code('/run'), t(' something')];
+        }
+      }
+    } else {
+      // guest
+      if (state.role === 'runner') {
+        parts = [b('you can run commands'), t(' — '), code('/run <command>'), t(', or just chat')];
+      } else {
+        parts = [t("you're watching — chat freely; "), code('/run'),
+                 t(' unlocks once the host allows you')];
+      }
+    }
+
+    bar.textContent = '';
+    var spark = el('span', 'spark', '➜'); bar.appendChild(spark); bar.appendChild(document.createTextNode(' '));
+    parts.forEach(function (p) { bar.appendChild(p); });
+    bar.hidden = false;
+
+    function t(s) { return document.createTextNode(s); }
+    function code(s) { return el('code', '', s); }
+    function b(s) { return el('b', '', s); }
+  }
+
   // ======================= commands =======================
 
   var COMMANDS = [
@@ -474,6 +633,9 @@
     var log = $('log'), row = $('promptRow');
     while (log.firstChild && log.firstChild !== row) log.removeChild(log.firstChild);
     cards = {};
+    welcomeNode = null;
+    renderWelcome();
+    updateHint();
   }
 
   // Serialise the transcript to Markdown and download it. Chat, commands (with
@@ -687,12 +849,16 @@
         $('hTitle').textContent = ev.me ? ev.me + '@hearth' : 'hearth';
         $('hCode').textContent = state.code || '';
         paintPrompt();
+        renderWelcome();
+        updateHint();
         return;
-      case 'chat': return addChat(ev.from, ev.text, ev.ts);
+      case 'chat': dropWelcome(); return addChat(ev.from, ev.text, ev.ts);
       case 'sys': return addSys(ev.text, ev.level);
-      case 'command-start': return startCommand(ev.rid, ev.requester, ev.command);
+      case 'command-start':
+        running = true; dropWelcome(); startCommand(ev.rid, ev.requester, ev.command);
+        updateHint(); return;
       case 'output': return appendOutput(ev.rid, ev.chunk);
-      case 'command-done': return finishCommand(ev.rid, ev);
+      case 'command-done': running = false; finishCommand(ev.rid, ev); updateHint(); return;
       case 'roster': {
         state.roster = ev.members || [];
         var me = state.roster.filter(function (m) { return m.id === state.meId; })[0];
@@ -700,6 +866,7 @@
           state.role = me.role;
           addSys(me.role === 'runner' ? 'the host gave you run access' : 'your run access was removed', 'warn');
         }
+        updateHint();
         return;
       }
       case 'locked': state.locked = !!ev.locked; return;
