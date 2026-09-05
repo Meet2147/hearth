@@ -1,6 +1,6 @@
 {
   "name": "hearth",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A shared terminal for friends. Chat and run commands together on one machine, end-to-end encrypted, with permissions the host controls.",
   "main": "hearth.js",
   "bin": {
